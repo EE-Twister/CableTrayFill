@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Cable Tray Packing</title>
 
-  <!-- SheetJS / xlsx for Excel import/export. -->
+  <!-- SheetJS / xlsx for Excel import/export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
@@ -19,7 +19,6 @@
     }
     label {
       display: inline-block;
-      width: 120px;
       margin-bottom: 4px;
       font-size: 0.9rem;
     }
@@ -93,6 +92,10 @@
     }
     .recommend {
       color: blue;
+      font-weight: bold;
+    }
+    .nfpaWarn {
+      color: red;
       font-weight: bold;
     }
 
@@ -175,9 +178,7 @@
   </style>
 </head>
 <body>
-  <h1>
-    Cable Tray Packing
-  </h1>
+  <h1>Cable Tray Packing</h1>
 
   <!-- TRAY PARAMETERS -->
   <fieldset>
@@ -207,33 +208,40 @@
 
   <!-- CABLE ENTRY TABLE -->
   <fieldset>
-    <legend><strong>Enter Cables (Type, OD, Weight)</strong></legend>
+    <legend><strong>Enter Cables</strong></legend>
     <button id="addCableBtn">Add Cable</button>
     <table id="cableTable">
       <thead>
         <tr>
           <th>Tag</th>
-          <th>Type</th>
+          <th>Cable Type</th>
+          <th>Cable Configuration</th>
           <th>OD (in)</th>
           <th>Weight (lbs/ft)</th>
           <th>Remove</th>
         </tr>
       </thead>
       <tbody>
-        <!-- rows inserted here -->
+        <!-- rows inserted here by script -->
       </tbody>
     </table>
     <p style="font-size:0.85rem; color:#555; margin-top:8px;">
-      You can type any custom Type, OD, and Weight, <strong>or</strong> pick one of the defaults below:
+      <strong>Cable Configuration:</strong> Type any custom configuration or pick one of the Cooper B-Line defaults below.<br>
+      OD & Weight auto-fill if you select a default.
     </p>
-    <!-- DATASOURCE for default types -->
+    <!-- DATASOURCE for default Cooper B-Line configurations -->
     <datalist id="typeList">
-      <!-- Will be populated by script -->
+      <!-- Populated by script -->
     </datalist>
   </fieldset>
 
-  <!-- CONTROLS: Draw, Expand, Import Excel, Export Excel -->
+  <!-- CONTROLS: Spacing Checkbox + Draw, Expand, Import/Export -->
   <div id="controls">
+    <label>
+      <input type="checkbox" id="largeSpacing" />
+      Add one‐diameter spacing between 4/0+ cables
+    </label>
+    <br/>
     <button id="drawBtn">Draw Tray</button>
     <button id="expandBtn">Expand Image</button>
     <button id="importExcelBtn">Import Excel</button>
@@ -260,7 +268,7 @@
   <script>
     (function() {
       // ─────────────────────────────────────────────────────────────
-      // (A) Cooper B-Line Default Sizes (3 conductors + ground) :contentReference[oaicite:0]{index=0}
+      // (A) Cooper B-Line Default Configurations (3 conductors + ground) :contentReference[oaicite:0]{index=0}
       // ─────────────────────────────────────────────────────────────
       const cableOptions = [
         { label: "3/C – #8 AWG",     OD: 0.66,   weight: 0.33 },
@@ -279,7 +287,7 @@
         { label: "3/C – 1000 kcmil", OD: 3.10,   weight: 11.70 }
       ];
 
-      // Populate the <datalist> with default labels
+      // Populate the <datalist> (#typeList) with default labels
       const typeDatalist = document.getElementById("typeList");
       cableOptions.forEach(opt => {
         const option = document.createElement("option");
@@ -287,18 +295,18 @@
         typeDatalist.appendChild(option);
       });
 
-      // We’ll store last‐drawn data here for “Expand”
-      let lastPlaced = null;   // array of {x,y,r,OD,tag,type,weight}
+      // We’ll store last‐drawn data here (for “Expand Image”)
+      let lastPlaced = null;   // array of { x, y, r, OD, tag, cableType, config, weight }
       let lastTrayW   = 0;     // in inches
       let lastTrayD   = 0;     // in inches
       let lastType    = "";    // “ladder” or “solid”
       let lastScale   = 20;    // px/in for small view
 
-      // Reference to the <tbody> of the cable table
+      // Reference to <tbody> in the cable table
       const cableTbody = document.querySelector("#cableTable tbody");
 
       // ─────────────────────────────────────────────────────────────
-      // (B) Helper: create one cable‐entry <tr> (Tag / Type / OD / Weight / Remove)
+      // (B) Helper: create one cable‐entry <tr> (Tag / Cable Type / Configuration / OD / Weight / Remove)
       // ─────────────────────────────────────────────────────────────
       function createCableRow() {
         const tr = document.createElement("tr");
@@ -313,29 +321,45 @@
         tdTag.appendChild(inpTag);
         tr.appendChild(tdTag);
 
-        // (2) Type cell (input + datalist for defaults)
-        const tdType = document.createElement("td");
-        const inpType = document.createElement("input");
-        inpType.type = "text";
-        inpType.setAttribute("list", "typeList");
-        inpType.placeholder = "-- custom or pick default --";
-        inpType.style.width = "160px";
-        tdType.appendChild(inpType);
-        tr.appendChild(tdType);
+        // (2) Cable Type cell (dropdown: Power, Control, Signal)
+        const tdCableType = document.createElement("td");
+        const selCableType = document.createElement("select");
+        selCableType.style.width = "120px";
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent = "-- select --";
+        selCableType.appendChild(emptyOpt);
+        ["Power", "Control", "Signal"].forEach(optText => {
+          const o = document.createElement("option");
+          o.value = optText;
+          o.textContent = optText;
+          selCableType.appendChild(o);
+        });
+        tdCableType.appendChild(selCableType);
+        tr.appendChild(tdCableType);
 
-        // (3) OD cell (number; auto‐filled or custom)
+        // (3) Cable Configuration cell (input + datalist)
+        const tdConfig = document.createElement("td");
+        const inpConfig = document.createElement("input");
+        inpConfig.type = "text";
+        inpConfig.setAttribute("list", "typeList");
+        inpConfig.placeholder = "-- custom or pick default --";
+        inpConfig.style.width = "160px";
+        tdConfig.appendChild(inpConfig);
+        tr.appendChild(tdConfig);
+
+        // (4) OD cell (number; auto‐filled or custom)
         const tdOD = document.createElement("td");
         const inpOD = document.createElement("input");
         inpOD.type = "number";
         inpOD.placeholder = "0.00";
         inpOD.step = "0.01";
         inpOD.style.width = "60px";
-        // Initially read‐only until user picks custom
-        inpOD.readOnly = true;
+        inpOD.readOnly = true; // locked until user picks a default config
         tdOD.appendChild(inpOD);
         tr.appendChild(tdOD);
 
-        // (4) Weight cell (number; auto‐filled or custom)
+        // (5) Weight cell (number; auto‐filled or custom)
         const tdWt = document.createElement("td");
         const inpWt = document.createElement("input");
         inpWt.type = "number";
@@ -346,7 +370,7 @@
         tdWt.appendChild(inpWt);
         tr.appendChild(tdWt);
 
-        // (5) Remove button cell
+        // (6) Remove button cell
         const tdRm = document.createElement("td");
         const btnRm = document.createElement("button");
         btnRm.textContent = "✖";
@@ -357,20 +381,20 @@
         tdRm.appendChild(btnRm);
         tr.appendChild(tdRm);
 
-        // When Type changes (either by picking a default or custom‐typing), adjust OD/Weight:
-        inpType.addEventListener("input", () => {
-          const val = inpType.value.trim();
+        // When “Cable Configuration” changes, auto‐fill OD/Weight if it matches a default
+        inpConfig.addEventListener("input", () => {
+          const val = inpConfig.value.trim();
           const matchIdx = cableOptions.findIndex(o => o.label === val);
           if (matchIdx >= 0) {
-            // It matches a default → auto‐fill and lock
-            inpOD.value   = cableOptions[matchIdx].OD.toFixed(2);
-            inpWt.value   = cableOptions[matchIdx].weight.toFixed(2);
+            // Matches a default → auto‐fill & lock
+            inpOD.value    = cableOptions[matchIdx].OD.toFixed(2);
+            inpWt.value    = cableOptions[matchIdx].weight.toFixed(2);
             inpOD.readOnly = true;
             inpWt.readOnly = true;
           } else {
-            // Custom type → clear and allow editing
-            inpOD.value = "";
-            inpWt.value = "";
+            // Custom configuration → clear & unlock
+            inpOD.value    = "";
+            inpWt.value    = "";
             inpOD.readOnly = false;
             inpWt.readOnly = false;
           }
@@ -399,6 +423,27 @@
         36:39.0
       };
       const standardWidths = [6, 9, 12, 18, 24, 30, 36];
+
+      // NFPA 70 Table 392.22(A) “Column 2a” for Ladder (in²)
+      const nfpaLadder = {
+        6:  7.0,
+        9: 10.5,
+        12:14.0,
+        18:21.0,
+        24:28.0,
+        30:32.5,
+        36:39.0
+      };
+      // NFPA 70 Table 392.22(A) “Column 4a” for Solid Bottom (in²)
+      const nfpaSolid = {
+        6:  5.5,
+        9:  8.0,
+        12:11.0,
+        18:16.5,
+        24:22.0,
+        30:27.5,
+        36:33.0
+      };
 
       function splitLargeSmall(cables) {
         const large = [], small = [];
@@ -437,47 +482,58 @@
       }
 
       // ─────────────────────────────────────────────────────────────
-      // (D) Placement Helpers (IGNORE bounds, force‐draw)
-      //   (1) placeLargeIgnoreBounds – single bottom row for large
-      //   (2) placeSmallByPacking – “true packing” for small
+      // (D) Placement Helpers
+      //   (1) placeLargeIgnoreBounds – bottom row for large (with optional spacing using larger‐diameter)
+      //   (2) placeSmallByPacking – true “tangent‐circle” packing
       // ─────────────────────────────────────────────────────────────
 
-      // (1) Place large cables bottom row (y = r), ignoring tray width
-      function placeLargeIgnoreBounds(largeCables) {
+      // (1) Bottom‐row placement for large cables (y = r), ignoring tray width,
+      //     but if spacingEnabled, add one‐diameter gap equal to the larger cable’s diameter.
+      function placeLargeIgnoreBounds(largeCables, spacingEnabled) {
+        // --- SORT largeCables BY DESCENDING OD (largest → smallest) ---
+        const sortedLarge = largeCables.slice().sort((a, b) => b.OD - a.OD);
+
         const placed = [];
-        let runningX = 0;
-        largeCables.forEach((c, i) => {
+        sortedLarge.forEach((c, i) => {
           const r = c.OD / 2;
+          let xCenter;
           if (i === 0) {
-            runningX = r;
+            // First large cable: center at r
+            xCenter = r;
           } else {
             const prev = placed[i - 1];
-            runningX = prev.x + prev.r + r;
+            if (spacingEnabled) {
+              // Use the diameter of the LARGER of the two: prev.r or r
+              const largerRadius = Math.max(prev.r, r);
+              const spacing = 2 * largerRadius;       // one full diameter of the larger cable
+              xCenter = prev.x + prev.r + spacing + r;
+            } else {
+              // No extra spacing: edge‐to‐edge
+              xCenter = prev.x + prev.r + r;
+            }
           }
           placed.push({
-            x: runningX,
+            x: xCenter,
             y: r,
             r: r,
             OD: c.OD,
             tag: c.tag,
-            type: c.type,
+            cableType: c.cableType,
+            config: c.config,
             weight: c.weight
           });
         });
         return placed;
       }
 
-      // (2) Place small cables via “tangent‐circle” packing
+      // (2) True “tangent‐circle” packing for small cables
       function placeSmallByPacking(smallCables, trayW, barrierX, basePlaced) {
+        // Copy basePlaced into new array
         const placed = basePlaced.map(p => ({
-          x: p.x,
-          y: p.y,
-          r: p.r,
-          OD: p.OD,
-          tag: p.tag,
-          type: p.type,
-          weight: p.weight
+          x: p.x, y: p.y, r: p.r, OD: p.OD,
+          tag: p.tag, cableType: p.cableType, config: p.config, weight: p.weight
         }));
+        // Sort small descending by OD
         const sorted = smallCables.slice().sort((a, b) => b.OD - a.OD);
         const EPS = 1e-6;
 
@@ -489,7 +545,7 @@
           // A1) Floor‐only at x = barrierX + r, y = r
           candidates.push({ x: barrierX + r, y: r });
 
-          // A2) Tangent to floor + one placed circle p → x = p.x ± (p.r + r), y = r
+          // A2) Tangent to floor + each placed p → x = p.x ± (p.r + r), y = r
           placed.forEach(p => {
             const leftX  = p.x - (p.r + r);
             const rightX = p.x + (p.r + r);
@@ -510,8 +566,11 @@
               const R2 = q.r + r;
               const dx = q.x - p.x, dy = q.y - p.y;
               const d2 = dx*dx + dy*dy, d = Math.sqrt(d2);
-              // Skip if no intersection
-              if (d < EPS || d > R1 + R2 - EPS || d < Math.abs(R1 - R2) + EPS) {
+              if (
+                d < EPS ||
+                d > (R1 + R2) - EPS ||
+                d < Math.abs(R1 - R2) + EPS
+              ) {
                 continue;
               }
               const a = (R1*R1 - R2*R2 + d2) / (2 * d);
@@ -524,7 +583,7 @@
 
               const cand1 = { x: xm + rx, y: ym + ry };
               const cand2 = { x: xm - rx, y: ym - ry };
-              [cand1, cand2].forEach(({x, y}) => {
+              [cand1, cand2].forEach(({ x, y }) => {
                 if (
                   x >= barrierX + r - EPS &&
                   x <= trayW - r + EPS &&
@@ -536,7 +595,7 @@
             }
           }
 
-          // A4) Tangent to barrier + one placed circle p
+          // A4) Tangent to barrier + each placed circle p
           placed.forEach(p => {
             const cx = barrierX + r;
             const dx = Math.abs(cx - p.x);
@@ -550,16 +609,14 @@
             }
           });
 
-          // B) FILTER candidates (must not overlap and be in bounds)
+          // B) FILTER valid candidates (in‐bounds, no overlap)
           candidates.forEach(pos => {
-            const xCand = pos.x;
-            const yCand = pos.y;
+            const xCand = pos.x, yCand = pos.y;
             if (xCand - r < barrierX - EPS || xCand + r > trayW + EPS) return;
             if (yCand - r < -EPS) return;
             let overl = false;
             for (const p of placed) {
-              const dx = xCand - p.x;
-              const dy = yCand - p.y;
+              const dx = xCand - p.x, dy = yCand - p.y;
               const req = p.r + r;
               if (dx*dx + dy*dy < (req - EPS)*(req - EPS)) {
                 overl = true;
@@ -576,7 +633,7 @@
             }
           });
 
-          // C) FALL BACK if no valid tangent position found
+          // C) FALL BACK if no valid tangent found
           if (best.x === null) {
             const xForced = barrierX + r;
             let yForced = r;
@@ -597,7 +654,8 @@
             r: r,
             OD: c.OD,
             tag: c.tag,
-            type: c.type,
+            cableType: c.cableType,
+            config: c.config,
             weight: c.weight
           });
         });
@@ -607,29 +665,34 @@
 
 
       // ─────────────────────────────────────────────────────────────
-      // (E) “Draw Tray” button: collect inputs → compute metrics → place → draw small SVG → show warnings
+      // (E) “Draw Tray” button: gather inputs → metrics → placement → draw small SVG → show warnings
       // ─────────────────────────────────────────────────────────────
       document.getElementById("drawBtn").addEventListener("click", () => {
         // 1) Tray parameters
-        const trayW = parseFloat(document.getElementById("trayWidth").value);
-        const trayD = parseFloat(document.getElementById("trayDepth").value);
+        const trayW    = parseFloat(document.getElementById("trayWidth").value);
+        const trayD    = parseFloat(document.getElementById("trayDepth").value);
         const trayType = document.getElementById("trayType").value;
 
         // 2) Gather cables from the table
         const rows = Array.from(cableTbody.querySelectorAll("tr"));
         const cables = [];
         for (const row of rows) {
-          const tagVal  = row.children[0].querySelector("input").value.trim();
-          const typeVal = row.children[1].querySelector("input").value.trim();
-          const odVal   = parseFloat(row.children[2].querySelector("input").value);
-          const wtVal   = parseFloat(row.children[3].querySelector("input").value);
+          const tagVal     = row.children[0].querySelector("input").value.trim();
+          const cableType  = row.children[1].querySelector("select").value;
+          const configVal  = row.children[2].querySelector("input").value.trim();
+          const odVal      = parseFloat(row.children[3].querySelector("input").value);
+          const wtVal      = parseFloat(row.children[4].querySelector("input").value);
 
           if (!tagVal) {
             alert("ERROR: Every cable row requires a Tag.");
             return;
           }
-          if (!typeVal) {
-            alert(`ERROR: Every cable row requires a Type (default or custom).`);
+          if (!cableType) {
+            alert(`ERROR: Every cable row requires a Cable Type.`);
+            return;
+          }
+          if (!configVal) {
+            alert(`ERROR: Every cable row requires a Cable Configuration.`);
             return;
           }
           if (isNaN(odVal) || isNaN(wtVal)) {
@@ -639,7 +702,8 @@
 
           cables.push({
             tag: tagVal,
-            type: typeVal,
+            cableType: cableType,
+            config: configVal,
             OD: odVal,
             weight: wtVal
           });
@@ -649,7 +713,7 @@
           return;
         }
 
-        // 3) Compute extra metrics:
+        // 3) Compute extra metrics: small-area & large-diameter sums
         let sumSmallArea = 0;
         let sumLargeDiam = 0;
         cables.forEach(c => {
@@ -664,42 +728,128 @@
         const { large, small } = splitLargeSmall(cables);
         const recommendedWidth = computeNeededWidth(large, small, trayType);
 
-        // 5) Summarize metrics + total weight
+        // 5) Check if user wants one‐diameter spacing between 4/0+ cables
+        const spacingEnabled = document.getElementById("largeSpacing").checked;
+
+        // 6) Place large cables first (largest→smallest, then spacing by larger‐diameter)
+        let largePlaced = [];
+        if (large.length > 0) {
+          largePlaced = placeLargeIgnoreBounds(large, spacingEnabled);
+        }
+
+        // 7) Compute barrierX based on actual large placement
+        let barrierX = 0;
+        if (largePlaced.length > 0) {
+          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
+        }
+
+        // 8) Available cross-sectional area for small cables:
+        const availableWidth     = Math.max(0, trayW - barrierX);
+        const availableCrossArea = availableWidth * trayD;
+        const fillPercent = small.length === 0
+          ? 0
+          : (availableCrossArea > 0
+            ? Math.min(100, (sumSmallArea / availableCrossArea) * 100)
+            : 100);
+
+        // 9) Determine if ALL cables are Control/Signal
+        const allCS = cables.every(c =>
+          c.cableType === "Control" || c.cableType === "Signal"
+        );
+
+        // 10) NFPA 70 Table 392.22(A) warning (area vs sumLargeDiam) — only if NOT allCS
+        let nfpaWarning = "";
+        if (!allCS) {
+          const baseAllow = (trayType === "ladder")
+            ? nfpaLadder[trayW] || 0
+            : nfpaSolid[trayW] || 0;
+          const penaltyFactor = (trayType === "ladder") ? 1.2 : 1.0;
+          if (baseAllow > 0) {
+            let nfpaAllowable = baseAllow - (penaltyFactor * sumLargeDiam);
+            if (nfpaAllowable < 0) nfpaAllowable = 0;
+            if (sumSmallArea > nfpaAllowable + 1e-6) {
+              nfpaWarning = `
+                <p class="nfpaWarn">
+                  NFPA 70 Table 392.22(A) WARNING:<br>
+                  Small‐cable area (${sumSmallArea.toFixed(2)} in²) exceeds NFPA allowable
+                  (${nfpaAllowable.toFixed(2)} in²) for a ${trayW}" ${
+                trayType === "ladder" ? "Ladder" : "Solid Bottom"
+              } tray.
+                </p>`;
+            }
+          }
+        }
+
+        // 11) NFPA 70 392.22(A)(2) & (4) warning for Control/Signal‐only
+        let csWarning = "";
+        if (allCS) {
+          if (trayType === "ladder" && fillPercent > 50) {
+            csWarning = `
+              <p class="nfpaWarn">
+                NFPA 70 392.22(A)(2) WARNING:<br>
+                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)}%) exceeds 50% for Ladder tray.
+              </p>`;
+          } else if (trayType === "solid" && fillPercent > 40) {
+            csWarning = `
+              <p class="nfpaWarn">
+                NFPA 70 392.22(A)(4) WARNING:<br>
+                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)}%) exceeds 40% for Solid Bottom tray.
+              </p>`;
+          }
+        }
+
+        // 12) Summarize metrics + total weight
         const totalWeight = cables.reduce((sum, c) => sum + c.weight, 0);
         let resultsHTML = `
           <p>
-            <strong>Using Tray Width:</strong> ${trayW}"<br/>
-            <strong>Tray Depth:</strong> ${trayD}"<br/>
-            <strong>Type:</strong> ${trayType === "ladder" ? "Ladder (50 % fill)" : "Solid Bottom (40 % fill)"}
+            <strong>Using Tray Width:</strong> ${trayW}"<br>
+            <strong>Tray Depth:</strong> ${trayD}"<br>
+            <strong>Type:</strong> ${
+              trayType === "ladder"
+                ? "Ladder (50 % fill)"
+                : "Solid Bottom (40 % fill)"
+            }
           </p>
+
           <p>
-            <strong>Cables Smaller than 4/0 Cross-Sectional Area:</strong>
+            <strong>Cables Smaller than 4/0 Cross‐Sectional Area:</strong>
             ${sumSmallArea.toFixed(2)} in²
           </p>
+
+          <!-- Fill Percentage -->
+          <p>
+            <strong>Fill Percentage (Small vs Available):</strong>
+            ${fillPercent.toFixed(0)} %
+          </p>
+
+          <!-- NFPA 392.22(A) area‐vs‐diameter warning (suppressed if allCS) -->
+          ${nfpaWarning}
+
+          <!-- NFPA 392.22(A)(2)/(4) Control/Signal‐only warning -->
+          ${csWarning}
+
           <p>
             <strong>Sum of 4/0 and Larger Cable Diameters:</strong>
             ${sumLargeDiam.toFixed(2)} in
           </p>
+
           <p>
             <strong>Total Cable Weight:</strong> ${totalWeight.toFixed(2)} lbs/ft
           </p>
         `;
 
-        // 6) Place all cables ignoring horizontal/vertical bounds
+        // 13) Place small cables, if any
         let placedAll = [];
-        let barrierX = 0;
-
-        if (large.length > 0 && small.length > 0) {
-          const largePlaced = placeLargeIgnoreBounds(large);
-          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
+        if (largePlaced.length > 0 && small.length > 0) {
           const smallPlaced = placeSmallByPacking(small, trayW, barrierX, largePlaced);
           placedAll = largePlaced.concat(smallPlaced.slice(largePlaced.length));
         }
-        else if (large.length > 0) {
-          placedAll = placeLargeIgnoreBounds(large);
+        else if (largePlaced.length > 0) {
+          placedAll = largePlaced;
         }
         else {
-          placedAll = placeSmallByPacking(small, trayW, 0, []);
+          const smallPlaced = placeSmallByPacking(small, trayW, 0, []);
+          placedAll = smallPlaced;
         }
 
         // Store for “Expand Image”
@@ -709,7 +859,7 @@
         lastType    = trayType;
         lastScale   = 20;  // px/in for small view
 
-        // 7) Detect overflow horizontally/vertically
+        // 14) Detect overflow horizontally/vertically
         let overflowHoriz = false;
         let overflowVert  = false;
         placedAll.forEach(p => {
@@ -717,19 +867,42 @@
           if (p.y + p.r > trayD + 1e-6) overflowVert  = true;
         });
 
-        // 8) Draw the small SVG (20 px/in)
+        // 15) Draw the small SVG (20 px/in)
         const svgW = trayW * lastScale;
         const svgH = trayD * lastScale;
-        let svg = `<svg width="${svgW}" height="${svgH}" style="background:#f9f9f9; border:1px solid #999;">`;
-        svg += `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="none" stroke="#333" stroke-width="2"/>`;
-        if (large.length > 0 && small.length > 0) {
+        let svg = `
+          <svg
+            width="${svgW}"
+            height="${svgH}"
+            style="background:#f9f9f9; border:1px solid #999;"
+          >
+        `;
+        // Tray border
+        svg += `
+          <rect
+            x="0" y="0"
+            width="${svgW}" height="${svgH}"
+            fill="none" stroke="#333" stroke-width="2"
+          />
+        `;
+        // If mixed large + small, draw vertical barrier
+        if (largePlaced.length > 0 && small.length > 0) {
           const barXpx = barrierX * lastScale;
-          svg += `<line x1="${barXpx.toFixed(2)}" y1="0" x2="${barXpx.toFixed(2)}" y2="${svgH}"
-                           stroke="#aa3300" stroke-width="2" stroke-dasharray="4 2"/>`;
+          svg += `
+            <line
+              x1="${barXpx.toFixed(2)}" y1="0"
+              x2="${barXpx.toFixed(2)}" y2="${svgH}"
+              stroke="#aa3300"
+              stroke-width="2"
+              stroke-dasharray="4 2"
+            />
+          `;
         }
+
+        // Draw each circle with a <title> for hover tooltip
         placedAll.forEach(p => {
           const cx = p.x * lastScale;
-          const cy = (trayD - p.y) * lastScale; // flip Y
+          const cy = (trayD - p.y) * lastScale; // flip Y-axis
           const r  = p.r * lastScale;
           svg += `
             <circle
@@ -741,17 +914,19 @@
               stroke-width="1"
             >
               <title>
-Tag: ${p.tag}
-Type: ${p.type}
+Cable Tag: ${p.tag}
+Cable Type: ${p.cableType}
+Configuration: ${p.config}
 OD: ${p.OD.toFixed(2)}″
 Wt: ${p.weight.toFixed(2)} lbs/ft
               </title>
-            </circle>`;
+            </circle>
+          `;
         });
         svg += `</svg>`;
         document.getElementById("svgContainer").innerHTML = svg;
 
-        // 9) Show overflow warnings & recommendations
+        // 16) Show overflow warnings & recommendations
         if (overflowHoriz || overflowVert) {
           if (overflowHoriz) {
             if (recommendedWidth && recommendedWidth > trayW) {
@@ -760,7 +935,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
                   WARNING: Some cables extend beyond the tray width (${trayW}").
                 </p>
                 <p class="recommend">
-                  Recommend trying a larger standard width: ${recommendedWidth}" 
+                  Recommend larger standard width: ${recommendedWidth}" 
                 </p>`;
             } else {
               resultsHTML += `
@@ -787,31 +962,51 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
       });
 
       // ─────────────────────────────────────────────────────────────
-      // (F) “Expand Image” button: show a popup at 160 px/in (twice larger again)
+      // (F) “Expand Image” button: popup at 160 px/in (double the 80 px/in)
       // ─────────────────────────────────────────────────────────────
       document.getElementById("expandBtn").addEventListener("click", () => {
         if (!lastPlaced) {
           alert("Please click “Draw Tray” first, then Expand.");
           return;
         }
-        // Build new SVG at 160 px/in
-        const bigScale = 160;
+        const bigScale = 160;  // 160 px/in for high resolution
         const trayW = lastTrayW, trayD = lastTrayD;
         const svgW = trayW * bigScale;
         const svgH = trayD * bigScale;
-        let svg = `<svg width="${svgW}" height="${svgH}" style="background:#f9f9f9; border:1px solid #333;">`;
+        let svg = `
+          <svg
+            width="${svgW}"
+            height="${svgH}"
+            style="background:#f9f9f9; border:1px solid #333;"
+          >
+        `;
 
-        svg += `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="none" stroke="#333" stroke-width="4"/>`;
+        // Tray border
+        svg += `
+          <rect
+            x="0" y="0"
+            width="${svgW}" height="${svgH}"
+            fill="none" stroke="#333" stroke-width="4"
+          />
+        `;
 
         const largeCables = lastPlaced.filter(p => p.OD >= 1.55);
         const smallCables = lastPlaced.filter(p => p.OD < 1.55);
         if (largeCables.length > 0 && smallCables.length > 0) {
           const barrierX = Math.max(...largeCables.map(p => p.x + p.r));
           const barXpx = barrierX * bigScale;
-          svg += `<line x1="${barXpx.toFixed(2)}" y1="0" x2="${barXpx.toFixed(2)}" y2="${svgH}"
-                           stroke="#aa3300" stroke-width="4" stroke-dasharray="12 6"/>`;
+          svg += `
+            <line
+              x1="${barXpx.toFixed(2)}" y1="0"
+              x2="${barXpx.toFixed(2)}" y2="${svgH}"
+              stroke="#aa3300"
+              stroke-width="4"
+              stroke-dasharray="12 6"
+            />
+          `;
         }
 
+        // Draw each circle + inline text inside
         lastPlaced.forEach(p => {
           const cx = p.x * bigScale;
           const cy = (trayD - p.y) * bigScale;
@@ -824,13 +1019,15 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
               fill="#66ccff"
               stroke="#0066aa"
               stroke-width="2"
-            />`;
+            />
+          `;
 
-          // Insert multiline <text> inside
+          // Insert multiline <text> inside each circle
           const fontSize = Math.min(r * 0.15, 18);
           const lines = [
             `Tag: ${p.tag}`,
-            `Type: ${p.type}`,
+            `Type: ${p.cableType}`,
+            `Config: ${p.config}`,
             `OD: ${p.OD.toFixed(2)}″`,
             `Wt: ${p.weight.toFixed(2)}`
           ];
@@ -840,16 +1037,19 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
 
           lines.forEach((ln, idx) => {
             svg += `
-              <text x="${cx.toFixed(2)}" y="${(yStart + idx * lineHeight).toFixed(2)}"
-                    font-size="${fontSize}px"
-                    text-anchor="middle"
-                    fill="#000"
-                    stroke="none"
-                    font-family="Arial, sans-serif"
-                    pointer-events="none"
+              <text
+                x="${cx.toFixed(2)}"
+                y="${(yStart + idx * lineHeight).toFixed(2)}"
+                font-size="${fontSize}px"
+                text-anchor="middle"
+                fill="#000"
+                stroke="none"
+                font-family="Arial, sans-serif"
+                pointer-events="none"
               >
                 ${ln}
-              </text>`;
+              </text>
+            `;
           });
         });
 
@@ -968,14 +1168,15 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           alert("No cables to export.");
           return;
         }
-        // Build 2D array: header + each row
-        const data = [["Tag", "Type", "OD", "Weight"]];
+        // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight]
+        const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight"]];
         rows.forEach(row => {
-          const tag   = row.children[0].querySelector("input").value.trim();
-          const type  = row.children[1].querySelector("input").value.trim();
-          const od    = row.children[2].querySelector("input").value.trim();
-          const weight= row.children[3].querySelector("input").value.trim();
-          data.push([tag, type, od, weight]);
+          const tag       = row.children[0].querySelector("input").value.trim();
+          const cableType = row.children[1].querySelector("select").value;
+          const config    = row.children[2].querySelector("input").value.trim();
+          const od        = row.children[3].querySelector("input").value.trim();
+          const weight    = row.children[4].querySelector("input").value.trim();
+          data.push([tag, cableType, config, od, weight]);
         });
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1002,25 +1203,33 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             alert("Excel sheet is empty.");
             return;
           }
-          // Expect columns: Tag, Type, OD, Weight
+          // Expect columns: Tag, Cable Type, Cable Configuration, OD, Weight
           cableTbody.innerHTML = "";
           jsonArr.forEach((obj, idx) => {
-            const { Tag, Type, OD, Weight } = obj;
-            if (typeof Tag === "undefined" || typeof Type === "undefined" ||
-                typeof OD === "undefined" || typeof Weight === "undefined") {
-              alert(`Row ${idx+2} missing one of: Tag, Type, OD, Weight.`);
+            const { Tag, "Cable Type": CableType, "Cable Configuration": Config, OD, Weight } = obj;
+            if (
+              typeof Tag === "undefined" ||
+              typeof CableType === "undefined" ||
+              typeof Config === "undefined" ||
+              typeof OD === "undefined" ||
+              typeof Weight === "undefined"
+            ) {
+              alert(`Row ${idx + 2} missing one of: Tag, Cable Type, Cable Configuration, OD, Weight.`);
               return;
             }
             const newRow = createCableRow();
             newRow.children[0].querySelector("input").value = Tag;
-            newRow.children[1].querySelector("input").value = Type;
-            // Trigger input event to auto-fill or allow custom:
-            const typeInput = newRow.children[1].querySelector("input");
-            typeInput.dispatchEvent(new Event("input"));
-            // If it was a default, OD/Weight auto-filled. If not, fill manually:
-            const odInput = newRow.children[2].querySelector("input");
-            const wtInput = newRow.children[3].querySelector("input");
-            if (cableOptions.findIndex(o => o.label === Type) < 0) {
+            // Set the "Cable Type" dropdown
+            newRow.children[1].querySelector("select").value = CableType;
+            // Set the "Cable Configuration" input
+            newRow.children[2].querySelector("input").value = Config;
+            // Trigger input event so OD/Weight auto‐fill if default, else remain custom
+            const cfgInput = newRow.children[2].querySelector("input");
+            cfgInput.dispatchEvent(new Event("input"));
+            // If not matched a default, fill custom OD/Weight
+            const odInput = newRow.children[3].querySelector("input");
+            const wtInput = newRow.children[4].querySelector("input");
+            if (cableOptions.findIndex(o => o.label === Config) < 0) {
               odInput.value = parseFloat(OD).toFixed(2);
               wtInput.value = parseFloat(Weight).toFixed(2);
               odInput.readOnly = false;
@@ -1028,7 +1237,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             }
             cableTbody.appendChild(newRow);
           });
-          alert("Excel imported. Correct any unrecognized Types if needed.");
+          alert("Excel imported. Correct any unrecognized configurations if needed.");
           document.getElementById("importExcelInput").value = "";
         };
         reader.readAsBinaryString(file);
@@ -1069,17 +1278,19 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         const rows = Array.from(cableTbody.querySelectorAll("tr"));
         const arr = [];
         for (const row of rows) {
-          const tagVal  = row.children[0].querySelector("input").value.trim();
-          const typeVal = row.children[1].querySelector("input").value.trim();
-          const odVal   = parseFloat(row.children[2].querySelector("input").value);
-          const wtVal   = parseFloat(row.children[3].querySelector("input").value);
-          if (!tagVal || !typeVal || isNaN(odVal) || isNaN(wtVal)) {
-            alert("All rows must have Tag, Type, OD, and Weight before saving.");
+          const tagVal     = row.children[0].querySelector("input").value.trim();
+          const cableType  = row.children[1].querySelector("select").value;
+          const configVal  = row.children[2].querySelector("input").value.trim();
+          const odVal      = parseFloat(row.children[3].querySelector("input").value);
+          const wtVal      = parseFloat(row.children[4].querySelector("input").value);
+          if (!tagVal || !cableType || !configVal || isNaN(odVal) || isNaN(wtVal)) {
+            alert("All rows must have Tag, Cable Type, Configuration, OD, and Weight before saving.");
             return;
           }
           arr.push({
             tag: tagVal,
-            type: typeVal,
+            cableType: cableType,
+            config: configVal,
             OD: odVal,
             weight: wtVal
           });
@@ -1117,13 +1328,14 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         arr.forEach(cable => {
           const newRow = createCableRow();
           newRow.children[0].querySelector("input").value = cable.tag;
-          newRow.children[1].querySelector("input").value = cable.type;
-          // Trigger input event to auto-fill or allow custom
-          const typeInput = newRow.children[1].querySelector("input");
-          typeInput.dispatchEvent(new Event("input"));
-          const odInput = newRow.children[2].querySelector("input");
-          const wtInput = newRow.children[3].querySelector("input");
-          if (cableOptions.findIndex(o => o.label === cable.type) < 0) {
+          newRow.children[1].querySelector("select").value = cable.cableType;
+          newRow.children[2].querySelector("input").value = cable.config;
+          // Trigger input event so OD/Weight auto‐fill if default
+          const cfgInput = newRow.children[2].querySelector("input");
+          cfgInput.dispatchEvent(new Event("input"));
+          const odInput = newRow.children[3].querySelector("input");
+          const wtInput = newRow.children[4].querySelector("input");
+          if (cableOptions.findIndex(o => o.label === cable.config) < 0) {
             odInput.value = cable.OD.toFixed(2);
             wtInput.value = cable.weight.toFixed(2);
             odInput.readOnly = false;

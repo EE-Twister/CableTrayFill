@@ -183,15 +183,23 @@
   <!-- TRAY PARAMETERS -->
   <fieldset>
     <legend><strong>Tray Parameters</strong></legend>
+
     <label for="trayWidth">Inside Width (in):</label>
     <input type="number" id="trayWidth" min="6" step="1" value="12" />
+
     <label for="trayDepth">Load Depth (in):</label>
     <input type="number" id="trayDepth" min="2" step="1" value="3" />
+
     <label for="trayType">Tray Type:</label>
     <select id="trayType">
       <option value="ladder">Ladder (50 % fill)</option>
       <option value="solid">Solid Bottom (40 % fill)</option>
     </select>
+    <br/>
+
+    <!-- 1) New “Tray Name” input -->
+    <label for="trayName">Tray Name:</label>
+    <input type="text" id="trayName" placeholder="e.g. Main Power Run" style="width:200px;" />
   </fieldset>
 
   <!-- PROFILE CONTROLS -->
@@ -483,12 +491,12 @@
 
       // ─────────────────────────────────────────────────────────────
       // (D) Placement Helpers
-      //   (1) placeLargeIgnoreBounds – bottom row for large (with optional spacing using larger‐diameter)
+      //   (1) placeLargeIgnoreBounds – bottom row for large (with optional spacing by larger OD)
       //   (2) placeSmallByPacking – true “tangent‐circle” packing
       // ─────────────────────────────────────────────────────────────
 
       // (1) Bottom‐row placement for large cables (y = r), ignoring tray width,
-      //     but if spacingEnabled, add one‐diameter gap equal to the larger cable’s diameter.
+      //     but if spacingEnabled, add one‐diameter gap equal to the larger of the two radii.
       function placeLargeIgnoreBounds(largeCables, spacingEnabled) {
         // --- SORT largeCables BY DESCENDING OD (largest → smallest) ---
         const sortedLarge = largeCables.slice().sort((a, b) => b.OD - a.OD);
@@ -503,10 +511,10 @@
           } else {
             const prev = placed[i - 1];
             if (spacingEnabled) {
-              // Use the diameter of the LARGER of the two: prev.r or r
+              // Use the larger radius of (prev.r, r):
               const largerRadius = Math.max(prev.r, r);
-              const spacing = 2 * largerRadius;       // one full diameter of the larger cable
-              xCenter = prev.x + prev.r + spacing + r;
+              const gap = 2 * largerRadius; // one full diameter of the larger cable
+              xCenter = prev.x + prev.r + gap + r;
             } else {
               // No extra spacing: edge‐to‐edge
               xCenter = prev.x + prev.r + r;
@@ -665,13 +673,14 @@
 
 
       // ─────────────────────────────────────────────────────────────
-      // (E) “Draw Tray” button: gather inputs → metrics → placement → draw small SVG → show warnings
+      // (E) “Draw Tray” button: gather inputs → metrics → placement → draw SVG → show warnings
       // ─────────────────────────────────────────────────────────────
       document.getElementById("drawBtn").addEventListener("click", () => {
         // 1) Tray parameters
         const trayW    = parseFloat(document.getElementById("trayWidth").value);
         const trayD    = parseFloat(document.getElementById("trayDepth").value);
         const trayType = document.getElementById("trayType").value;
+        const trayName = document.getElementById("trayName").value.trim();
 
         // 2) Gather cables from the table
         const rows = Array.from(cableTbody.querySelectorAll("tr"));
@@ -713,7 +722,7 @@
           return;
         }
 
-        // 3) Compute extra metrics: small-area & large-diameter sums
+        // 3) Compute extra metrics: small‐area & large‐diameter sums
         let sumSmallArea = 0;
         let sumLargeDiam = 0;
         cables.forEach(c => {
@@ -731,7 +740,7 @@
         // 5) Check if user wants one‐diameter spacing between 4/0+ cables
         const spacingEnabled = document.getElementById("largeSpacing").checked;
 
-        // 6) Place large cables first (largest→smallest, then spacing by larger‐diameter)
+        // 6) Place large cables first (largest→smallest, then spacing by larger OD)
         let largePlaced = [];
         if (large.length > 0) {
           largePlaced = placeLargeIgnoreBounds(large, spacingEnabled);
@@ -743,7 +752,7 @@
           barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
         }
 
-        // 8) Available cross-sectional area for small cables:
+        // 8) Available cross‐sectional area for small cables:
         const availableWidth     = Math.max(0, trayW - barrierX);
         const availableCrossArea = availableWidth * trayD;
         const fillPercent = small.length === 0
@@ -787,13 +796,13 @@
             csWarning = `
               <p class="nfpaWarn">
                 NFPA 70 392.22(A)(2) WARNING:<br>
-                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)}%) exceeds 50% for Ladder tray.
+                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)} %) exceeds 50 % for Ladder tray.
               </p>`;
           } else if (trayType === "solid" && fillPercent > 40) {
             csWarning = `
               <p class="nfpaWarn">
                 NFPA 70 392.22(A)(4) WARNING:<br>
-                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)}%) exceeds 40% for Solid Bottom tray.
+                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)} %) exceeds 40 % for Solid Bottom tray.
               </p>`;
           }
         }
@@ -867,31 +876,102 @@
           if (p.y + p.r > trayD + 1e-6) overflowVert  = true;
         });
 
-        // 15) Draw the small SVG (20 px/in)
-        const svgW = trayW * lastScale;
-        const svgH = trayD * lastScale;
+        // 15) Draw the SVG (20 px/in) but with extra rows for “name” and “dimension”
+        const scale = lastScale;
+        const nameRowPx    = 20;   // 20px for the tray name
+        const dimRowPx     = 16;   // 16px for the dimension callout
+        const trayRowPx    = trayD * scale;
+        const totalSvgH    = nameRowPx + dimRowPx + trayRowPx;
+        const totalSvgW    = trayW * scale;
+        const nameTextY    = 14;   // Y‐coordinate to place the tray name text
+        const dimLineY     = nameRowPx + 8;         // mid‐height of dimension row
+        const trayTopY     = nameRowPx + dimRowPx;  // Y‐coordinate of tray top edge
+
         let svg = `
           <svg
-            width="${svgW}"
-            height="${svgH}"
+            width="${totalSvgW}"
+            height="${totalSvgH}"
             style="background:#f9f9f9; border:1px solid #999;"
           >
         `;
-        // Tray border
-        svg += `
-          <rect
-            x="0" y="0"
-            width="${svgW}" height="${svgH}"
-            fill="none" stroke="#333" stroke-width="2"
-          />
-        `;
-        // If mixed large + small, draw vertical barrier
-        if (largePlaced.length > 0 && small.length > 0) {
-          const barXpx = barrierX * lastScale;
+
+        // (A) Draw the tray name (if provided)
+        if (trayName) {
+          svg += `
+            <text
+              x="${(totalSvgW/2).toFixed(2)}"
+              y="${nameTextY}"
+              font-size="16px"
+              text-anchor="middle"
+              fill="#000"
+              font-family="Arial, sans-serif"
+            >${trayName}</text>
+          `;
+        }
+
+        // (B) Draw the dimension line from x=0 → x=barrierX*scale,
+        //     with small tick‐marks at each end, and place text of barrierX inches in middle.
+        if (barrierX > 0) {
+          const barrierXpx = barrierX * scale;
+          // Horizontal line
           svg += `
             <line
-              x1="${barXpx.toFixed(2)}" y1="0"
-              x2="${barXpx.toFixed(2)}" y2="${svgH}"
+              x1="0" y1="${dimLineY}"
+              x2="${barrierXpx.toFixed(2)}" y2="${dimLineY}"
+              stroke="#333"
+              stroke-width="2"
+            />
+          `;
+          // Left tick
+          svg += `
+            <line
+              x1="0" y1="${dimLineY - 4}"
+              x2="0" y2="${dimLineY + 4}"
+              stroke="#333"
+              stroke-width="2"
+            />
+          `;
+          // Right tick
+          svg += `
+            <line
+              x1="${barrierXpx.toFixed(2)}" y1="${dimLineY - 4}"
+              x2="${barrierXpx.toFixed(2)}" y2="${dimLineY + 4}"
+              stroke="#333"
+              stroke-width="2"
+            />
+          `;
+          // Text label (distance)
+          svg += `
+            <text
+              x="${(barrierXpx / 2).toFixed(2)}"
+              y="${(dimLineY - 6).toFixed(2)}"
+              font-size="12px"
+              text-anchor="middle"
+              fill="#333"
+              font-family="Arial, sans-serif"
+            >${barrierX.toFixed(2)}″</text>
+          `;
+        }
+
+        // (C) Draw the tray rectangle (starts at trayTopY)
+        svg += `
+          <rect
+            x="0" y="${trayTopY}"
+            width="${(trayW * scale).toFixed(2)}"
+            height="${(trayD * scale).toFixed(2)}"
+            fill="none"
+            stroke="#333"
+            stroke-width="2"
+          />
+        `;
+
+        // (D) If mixed large + small, draw the barrier line (shifted down by trayTopY)
+        if (largePlaced.length > 0 && small.length > 0) {
+          const barXpx = (barrierX * scale).toFixed(2);
+          svg += `
+            <line
+              x1="${barXpx}" y1="${trayTopY}"
+              x2="${barXpx}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
               stroke="#aa3300"
               stroke-width="2"
               stroke-dasharray="4 2"
@@ -899,11 +979,11 @@
           `;
         }
 
-        // Draw each circle with a <title> for hover tooltip
+        // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
-          const cx = p.x * lastScale;
-          const cy = (trayD - p.y) * lastScale; // flip Y-axis
-          const r  = p.r * lastScale;
+          const cx = p.x * scale;
+          const cy = trayTopY + ((trayD - p.y) * scale);
+          const r  = p.r * scale;
           svg += `
             <circle
               cx="${cx.toFixed(2)}"
@@ -923,6 +1003,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             </circle>
           `;
         });
+
         svg += `</svg>`;
         document.getElementById("svgContainer").innerHTML = svg;
 
@@ -963,6 +1044,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
 
       // ─────────────────────────────────────────────────────────────
       // (F) “Expand Image” button: popup at 160 px/in (double the 80 px/in)
+      //           (We apply the same “name + dimension + tray” logic, but with a larger scale.)
       // ─────────────────────────────────────────────────────────────
       document.getElementById("expandBtn").addEventListener("click", () => {
         if (!lastPlaced) {
@@ -971,34 +1053,105 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         }
         const bigScale = 160;  // 160 px/in for high resolution
         const trayW = lastTrayW, trayD = lastTrayD;
-        const svgW = trayW * bigScale;
-        const svgH = trayD * bigScale;
+        const trayName = document.getElementById("trayName").value.trim();
+        const nameRowPx    = 30;   // give more room for big text
+        const dimRowPx     = 24;
+        const trayRowPx    = trayD * bigScale;
+        const totalSvgH    = nameRowPx + dimRowPx + trayRowPx;
+        const totalSvgW    = trayW * bigScale;
+        const nameTextY    = 24;
+        const dimLineY     = nameRowPx + 12;    
+        const trayTopY     = nameRowPx + dimRowPx;
+
         let svg = `
           <svg
-            width="${svgW}"
-            height="${svgH}"
+            width="${totalSvgW}"
+            height="${totalSvgH}"
             style="background:#f9f9f9; border:1px solid #333;"
           >
         `;
 
-        // Tray border
+        // (A) Tray Name
+        if (trayName) {
+          svg += `
+            <text
+              x="${(totalSvgW/2).toFixed(2)}"
+              y="${nameTextY}"
+              font-size="24px"
+              text-anchor="middle"
+              fill="#000"
+              font-family="Arial, sans-serif"
+            >${trayName}</text>
+          `;
+        }
+
+        // (B) Dimension from left boundary → barrier
+        const largeCables = lastPlaced.filter(p => p.OD >= 1.55);
+        if (largeCables.length > 0) {
+          const barrierX = Math.max(...largeCables.map(p => p.x + p.r));
+          if (barrierX > 0) {
+            const barrierXpx = barrierX * bigScale;
+            // Horizontal line
+            svg += `
+              <line
+                x1="0" y1="${dimLineY}"
+                x2="${barrierXpx.toFixed(2)}" y2="${dimLineY}"
+                stroke="#333"
+                stroke-width="3"
+              />
+            `;
+            // Left tick
+            svg += `
+              <line
+                x1="0" y1="${dimLineY - 6}"
+                x2="0" y2="${dimLineY + 6}"
+                stroke="#333"
+                stroke-width="3"
+              />
+            `;
+            // Right tick
+            svg += `
+              <line
+                x1="${barrierXpx.toFixed(2)}" y1="${dimLineY - 6}"
+                x2="${barrierXpx.toFixed(2)}" y2="${dimLineY + 6}"
+                stroke="#333"
+                stroke-width="3"
+              />
+            `;
+            // Text label
+            svg += `
+              <text
+                x="${(barrierXpx / 2).toFixed(2)}"
+                y="${(dimLineY - 10).toFixed(2)}"
+                font-size="18px"
+                text-anchor="middle"
+                fill="#333"
+                font-family="Arial, sans-serif"
+              >${barrierX.toFixed(2)}″</text>
+            `;
+          }
+        }
+
+        // (C) Draw the tray rectangle
         svg += `
           <rect
-            x="0" y="0"
-            width="${svgW}" height="${svgH}"
-            fill="none" stroke="#333" stroke-width="4"
+            x="0" y="${trayTopY}"
+            width="${(trayW * bigScale).toFixed(2)}"
+            height="${(trayD * bigScale).toFixed(2)}"
+            fill="none"
+            stroke="#333"
+            stroke-width="4"
           />
         `;
 
-        const largeCables = lastPlaced.filter(p => p.OD >= 1.55);
-        const smallCables = lastPlaced.filter(p => p.OD < 1.55);
-        if (largeCables.length > 0 && smallCables.length > 0) {
+        // (D) Draw barrier if mixed
+        if (largeCables.length > 0 && lastPlaced.length > largeCables.length) {
           const barrierX = Math.max(...largeCables.map(p => p.x + p.r));
           const barXpx = barrierX * bigScale;
           svg += `
             <line
-              x1="${barXpx.toFixed(2)}" y1="0"
-              x2="${barXpx.toFixed(2)}" y2="${svgH}"
+              x1="${barXpx.toFixed(2)}" y1="${trayTopY}"
+              x2="${barXpx.toFixed(2)}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
               stroke="#aa3300"
               stroke-width="4"
               stroke-dasharray="12 6"
@@ -1006,10 +1159,10 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           `;
         }
 
-        // Draw each circle + inline text inside
+        // (E) Draw each circle + inline text inside
         lastPlaced.forEach(p => {
           const cx = p.x * bigScale;
-          const cy = (trayD - p.y) * bigScale;
+          const cy = trayTopY + ((trayD - p.y) * bigScale);
           const r  = p.r * bigScale;
           svg += `
             <circle
@@ -1023,7 +1176,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           `;
 
           // Insert multiline <text> inside each circle
-          const fontSize = Math.min(r * 0.15, 18);
+          const fontSize = Math.min(r * 0.15, 20);
           const lines = [
             `Tag: ${p.tag}`,
             `Type: ${p.cableType}`,

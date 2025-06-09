@@ -226,6 +226,7 @@
           <th>Cable Configuration</th>
           <th>OD (in)</th>
           <th>Weight (lbs/ft)</th>
+          <th>Duplicate</th>
           <th>Remove</th>
         </tr>
       </thead>
@@ -378,7 +379,30 @@
         tdWt.appendChild(inpWt);
         tr.appendChild(tdWt);
 
-        // (6) Remove button cell
+        // (6) Duplicate button cell
+        const tdDup = document.createElement("td");
+        const btnDup = document.createElement("button");
+        btnDup.textContent = "⧉";
+        btnDup.className = "duplicateBtn";
+        btnDup.addEventListener("click", () => {
+          const clone = createCableRow();
+          clone.children[0].querySelector("input").value = inpTag.value;
+          clone.children[1].querySelector("select").value = selCableType.value;
+          const cfgClone = clone.children[2].querySelector("input");
+          cfgClone.value = inpConfig.value;
+          cfgClone.dispatchEvent(new Event("input"));
+          const odClone = clone.children[3].querySelector("input");
+          const wtClone = clone.children[4].querySelector("input");
+          odClone.value = inpOD.value;
+          wtClone.value = inpWt.value;
+          odClone.readOnly = inpOD.readOnly;
+          wtClone.readOnly = inpWt.readOnly;
+          cableTbody.insertBefore(clone, tr.nextSibling);
+        });
+        tdDup.appendChild(btnDup);
+        tr.appendChild(tdDup);
+
+        // (7) Remove button cell
         const tdRm = document.createElement("td");
         const btnRm = document.createElement("button");
         btnRm.textContent = "✖";

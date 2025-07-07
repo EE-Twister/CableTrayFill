@@ -314,6 +314,8 @@
       // Populate the <datalist> (#sizeList) with unique conductor sizes
       const typeDatalist = document.getElementById("sizeList");
       const uniqueSizes = [...new Set(cableOptions.map(o => o.size))];
+      ['#10 AWG', '#12 AWG', '#14 AWG', '#16 AWG', '#18 AWG', '#20 AWG', '#22 AWG']
+        .forEach(sz => { if (!uniqueSizes.includes(sz)) uniqueSizes.push(sz); });
       uniqueSizes.forEach(sz => {
         const option = document.createElement("option");
         option.value = sz;
@@ -887,6 +889,12 @@
               <p class="nfpaWarn">
                 NFPA 70 392.22(B) WARNING:<br>
                 Single-conductor fill (${fillP.toFixed(0)} %) exceeds ${allowP} % allowable.
+              </p>`;
+          }
+          if (singleCables.some(c => c.count === 1 && sizeRank(c.size) < sizeRank('1/0 AWG'))) {
+            singleWarning += `
+              <p class="nfpaWarn">
+                Single-conductor cables smaller than #1/0 are not permitted in cable trays.
               </p>`;
           }
         }

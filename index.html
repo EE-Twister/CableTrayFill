@@ -886,14 +886,11 @@
           offset += widthUsed;
         });
 
-        // If combined width exceeds tray width, scale positions to fit
-        const totalWidthUsed = offset;
-        if (totalWidthUsed > trayW + 1e-6) {
-          const fitScale = trayW / totalWidthUsed;
-          placedAll.forEach(p => { p.x *= fitScale; });
-          barrierLines = barrierLines.map(x => x * fitScale);
-          offset = trayW;
-        }
+        // If combined width exceeds tray width, simply report overflow.
+        // Previously the code scaled x positions to "squish" the layout, but
+        // that could cause circles to overlap.  To honor the rules that
+        // circles must not overlap and must remain inside the tray, we keep the
+        // original layout and allow overflow detection to handle warnings.
 
         // 7) Determine if ALL cables are Control/Signal
         const allCS = cables.every(c => c.cableType === "Control" || c.cableType === "Signal");

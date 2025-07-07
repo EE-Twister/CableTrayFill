@@ -73,7 +73,6 @@
     .removeBtn:hover {
       background-color: #c0392b;
     }
-
     .duplicateBtn {
       background-color: #95a5a6;
       color: white;
@@ -85,7 +84,6 @@
     .duplicateBtn:hover {
       background-color: #7f8c8d;
     }
-
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -238,6 +236,7 @@
           <th>Cable Type</th>
           <th>Cable Configuration</th>
           <th>OD (in)</th>
+
           <th>Weight (lbs/ft)</th>
           <th>Cable Group</th>
           <th>Duplicate</th>
@@ -724,6 +723,26 @@
         return placed;
       }
 
+      // (3) Place an entire cable group within a given width and report width used
+      function placeGroup(groupCables, maxWidth, spacingEnabled) {
+        const { large: gLarge, small: gSmall } = splitLargeSmall(groupCables);
+        let largePlaced = [];
+        if (gLarge.length > 0) {
+          largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
+        }
+        let barrierX = 0;
+        if (largePlaced.length > 0) {
+          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
+        }
+        let finalPlaced = largePlaced;
+        if (gSmall.length > 0) {
+          finalPlaced = placeSmallByPacking(gSmall, maxWidth, barrierX, largePlaced);
+        }
+        const placed = largePlaced.concat(finalPlaced.slice(largePlaced.length));
+        const widthUsed = placed.length > 0 ? Math.max(...placed.map(p => p.x + p.r)) : 0;
+        return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
+      }
+
 
       // ─────────────────────────────────────────────────────────────
       // (E) “Draw Tray” button: gather inputs → metrics → placement → draw SVG → show warnings
@@ -742,7 +761,6 @@
           const tagVal     = row.children[0].querySelector("input").value.trim();
           const cableType  = row.children[1].querySelector("select").value;
           const configVal  = row.children[2].querySelector("input").value.trim();
-
           const odVal      = parseFloat(row.children[3].querySelector("input").value);
           const wtVal      = parseFloat(row.children[4].querySelector("input").value);
           const groupVal   = parseInt(row.children[5].querySelector("input").value) || 1;
@@ -802,32 +820,29 @@
         let barrierLines = [];
         let offset = 0;
         let groupHTML = "";
+
+        // First pass: determine natural width of each group
+        const groupInfo = [];
+        let totalWidthNeeded = 0;
         groupIds.forEach(gid => {
           const gCables = cables.filter(c => c.group === gid);
-          let smallArea = 0;
-          gCables.forEach(c => {
-            if (c.OD < 1.55) smallArea += Math.PI * (c.OD/2)**2;
-          });
-          const { large: gLarge, small: gSmall } = splitLargeSmall(gCables);
-          let largePlaced = [];
-          if (gLarge.length > 0) largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
-          let barrierX = 0;
-          if (largePlaced.length > 0) barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
-          let smallPlaced = [];
-          if (gLarge.length > 0 && gSmall.length > 0) {
-            smallPlaced = placeSmallByPacking(gSmall, trayW - offset, barrierX, largePlaced);
-          } else if (gLarge.length === 0) {
-            smallPlaced = placeSmallByPacking(gSmall, trayW - offset, 0, []);
-          }
-          const combined = largePlaced.concat(smallPlaced.slice(largePlaced.length));
-          const widthUsed = combined.length > 0 ? Math.max(...combined.map(p => p.x + p.r)) : 0;
-          const availWidth = Math.max(0, widthUsed - barrierX);
-          const availArea = availWidth * trayD;
-          const fillP = gSmall.length === 0 ? 0 : (availArea > 0 ? Math.min(100, (smallArea / availArea) * 100) : 100);
-          groupHTML += `<p><strong>Group ${gid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
+          const measure = placeGroup(gCables, trayW, spacingEnabled);
+          groupInfo.push({ gid, cables: gCables, width: measure.widthUsed });
+          totalWidthNeeded += measure.widthUsed;
+        });
+        const scaleFactor = totalWidthNeeded > trayW ? trayW / totalWidthNeeded : 1;
+
+        // Second pass: actual placement using scaled widths
+        groupInfo.forEach(info => {
+          const widthLimit = info.width * scaleFactor;
+          const result = placeGroup(info.cables, widthLimit, spacingEnabled);
+          const widthUsed = result.widthUsed;
+          const areaAll = sumAreas(info.cables);
+          const fillP = widthUsed > 0 ? Math.min(100, (areaAll / (widthUsed * trayD)) * 100) : 0;
+          groupHTML += `<p><strong>Group ${info.gid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
           if (offset > 0) barrierLines.push(offset);
-          if (gLarge.length > 0 && gSmall.length > 0) barrierLines.push(offset + barrierX);
-          combined.forEach(p => { p.x += offset; placedAll.push(p); });
+          if (result.largeCount > 0 && result.smallCount > 0) barrierLines.push(offset + result.barrierX);
+          result.placed.forEach(p => { p.x += offset; placedAll.push(p); });
           offset += widthUsed;
         });
 
@@ -974,7 +989,6 @@
         `;
 
 
-
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
           const cx = p.x * scale;
@@ -1106,6 +1120,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             stroke-width="4"
           />
         `;
+
 
         // (D) Draw each circle + inline text inside
         lastPlaced.forEach(p => {
@@ -1269,9 +1284,9 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           alert("No cables to export.");
           return;
         }
-
         // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight, Group]
         const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight", "Group"]];
+
         rows.forEach(row => {
           const tag       = row.children[0].querySelector("input").value.trim();
           const cableType = row.children[1].querySelector("select").value;
@@ -1341,11 +1356,20 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             }
             grpInput.value = Group || 1;
             cableTbody.appendChild(newRow);
-          });
           alert("Excel imported. Correct any unrecognized configurations if needed.");
           document.getElementById("importExcelInput").value = "";
         };
         reader.readAsBinaryString(file);
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
       });
 
       // (L2) Import Help button

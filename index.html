@@ -405,6 +405,7 @@
         tr.appendChild(tdGrp);
 
         // (7) Duplicate button cell
+
         const tdDup = document.createElement("td");
         const btnDup = document.createElement("button");
         btnDup.textContent = "⧉";
@@ -418,10 +419,12 @@
           cfgClone.dispatchEvent(new Event("input"));
           const odClone = clone.children[3].querySelector("input");
           const wtClone = clone.children[4].querySelector("input");
+
           const grpClone = clone.children[5].querySelector("input");
           odClone.value = inpOD.value;
           wtClone.value = inpWt.value;
           grpClone.value = inpGrp.value;
+
           odClone.readOnly = inpOD.readOnly;
           wtClone.readOnly = inpWt.readOnly;
           cableTbody.insertBefore(clone, tr.nextSibling);
@@ -1361,7 +1364,9 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         alert(
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
+
           "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+
           "3. Save the file then choose it with 'Import Excel'."
         );
       });

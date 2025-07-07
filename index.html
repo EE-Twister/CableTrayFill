@@ -255,6 +255,7 @@
     <button id="expandBtn">Expand Image</button>
     <button id="importExcelBtn">Import Excel</button>
     <button id="exportExcelBtn">Export Excel</button>
+    <button id="importHelpBtn">Import Help</button>
     <!-- Hidden file‐picker for .xlsx input -->
     <input type="file" id="importExcelInput" accept=".xlsx" style="display:none" />
   </div>
@@ -1418,6 +1419,16 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           document.getElementById("importExcelInput").value = "";
         };
         reader.readAsBinaryString(file);
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD and Weight.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
       });
 
       // ─────────────────────────────────────────────────────────────

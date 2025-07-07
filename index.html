@@ -73,6 +73,7 @@
     .removeBtn:hover {
       background-color: #c0392b;
     }
+
     .duplicateBtn {
       background-color: #95a5a6;
       color: white;
@@ -84,6 +85,7 @@
     .duplicateBtn:hover {
       background-color: #7f8c8d;
     }
+
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -405,7 +407,6 @@
         tr.appendChild(tdGrp);
 
         // (7) Duplicate button cell
-
         const tdDup = document.createElement("td");
         const btnDup = document.createElement("button");
         btnDup.textContent = "⧉";
@@ -419,12 +420,10 @@
           cfgClone.dispatchEvent(new Event("input"));
           const odClone = clone.children[3].querySelector("input");
           const wtClone = clone.children[4].querySelector("input");
-
           const grpClone = clone.children[5].querySelector("input");
           odClone.value = inpOD.value;
           wtClone.value = inpWt.value;
           grpClone.value = inpGrp.value;
-
           odClone.readOnly = inpOD.readOnly;
           wtClone.readOnly = inpWt.readOnly;
           cableTbody.insertBefore(clone, tr.nextSibling);
@@ -743,6 +742,7 @@
           const tagVal     = row.children[0].querySelector("input").value.trim();
           const cableType  = row.children[1].querySelector("select").value;
           const configVal  = row.children[2].querySelector("input").value.trim();
+
           const odVal      = parseFloat(row.children[3].querySelector("input").value);
           const wtVal      = parseFloat(row.children[4].querySelector("input").value);
           const groupVal   = parseInt(row.children[5].querySelector("input").value) || 1;
@@ -973,19 +973,7 @@
           />
         `;
 
-        // (D) If mixed large + small, draw the barrier line (shifted down by trayTopY)
-        if (largePlaced.length > 0 && small.length > 0) {
-          const barXpx = (barrierX * scale).toFixed(2);
-          svg += `
-            <line
-              x1="${barXpx}" y1="${trayTopY}"
-              x2="${barXpx}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
-              stroke="#aa3300"
-              stroke-width="2"
-              stroke-dasharray="4 2"
-            />
-          `;
-        }
+
 
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
@@ -1281,6 +1269,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           alert("No cables to export.");
           return;
         }
+
         // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight, Group]
         const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight", "Group"]];
         rows.forEach(row => {
@@ -1357,6 +1346,16 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           document.getElementById("importExcelInput").value = "";
         };
         reader.readAsBinaryString(file);
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
       });
 
       // (L2) Import Help button

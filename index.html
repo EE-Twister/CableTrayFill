@@ -236,6 +236,8 @@
           <th>Cable Type</th>
           <th>Conductors</th>
           <th>Conductor Size</th>
+          <th>Cable Rating (V)</th>
+          <th>Operating Voltage (V)</th>
           <th>OD (in)</th>
           <th>Weight (lbs/ft)</th>
           <th>Cable Group</th>
@@ -385,7 +387,24 @@
         tdSize.appendChild(inpSize);
         tr.appendChild(tdSize);
 
-        // (5) OD cell (number; auto‐filled or custom)
+        // (5) Cable Rating (V)
+        const tdRating = document.createElement("td");
+        const inpRating = document.createElement("input");
+        inpRating.type = "number";
+        inpRating.step = "1";
+        inpRating.style.width = "80px";
+        tdRating.appendChild(inpRating);
+        tr.appendChild(tdRating);
+
+        // (6) Operating Voltage (V)
+        const tdVolt = document.createElement("td");
+        const inpVolt = document.createElement("input");
+        inpVolt.type = "number";
+        inpVolt.step = "1";
+        inpVolt.style.width = "80px";
+        tdVolt.appendChild(inpVolt);
+        tr.appendChild(tdVolt);
+        // (7) OD cell (number; auto‐filled or custom)
         const tdOD = document.createElement("td");
         const inpOD = document.createElement("input");
         inpOD.type = "number";
@@ -395,8 +414,7 @@
         inpOD.readOnly = true; // locked until user picks a default config
         tdOD.appendChild(inpOD);
         tr.appendChild(tdOD);
-
-        // (5) Weight cell (number; auto‐filled or custom)
+        // (8) Weight cell (number; auto‐filled or custom)
         const tdWt = document.createElement("td");
         const inpWt = document.createElement("input");
         inpWt.type = "number";
@@ -406,8 +424,7 @@
         inpWt.readOnly = true;
         tdWt.appendChild(inpWt);
         tr.appendChild(tdWt);
-
-        // (6) Cable Group cell
+        // (9) Cable Group cell
         const tdGrp = document.createElement("td");
         const inpGrp = document.createElement("input");
         inpGrp.type = "number";
@@ -417,8 +434,7 @@
         inpGrp.value = "1";
         tdGrp.appendChild(inpGrp);
         tr.appendChild(tdGrp);
-
-        // (7) Duplicate button cell
+        // (10) Duplicate button cell
         const tdDup = document.createElement("td");
         const btnDup = document.createElement("button");
         btnDup.type = "button";
@@ -432,12 +448,16 @@
           const sizeClone = clone.children[3].querySelector("input");
           sizeClone.value = inpSize.value;
           sizeClone.dispatchEvent(new Event("input"));
-          const odClone = clone.children[4].querySelector("input");
-          const wtClone = clone.children[5].querySelector("input");
-          const grpClone = clone.children[6].querySelector("input");
-          odClone.value = inpOD.value;
-          wtClone.value = inpWt.value;
-          grpClone.value = inpGrp.value;
+          const ratingClone = clone.children[4].querySelector("input");
+          const voltClone   = clone.children[5].querySelector("input");
+          const odClone     = clone.children[6].querySelector("input");
+          const wtClone     = clone.children[7].querySelector("input");
+          const grpClone    = clone.children[8].querySelector("input");
+          ratingClone.value = inpRating.value;
+          voltClone.value   = inpVolt.value;
+          odClone.value     = inpOD.value;
+          wtClone.value     = inpWt.value;
+          grpClone.value    = inpGrp.value;
           odClone.readOnly = inpOD.readOnly;
           wtClone.readOnly = inpWt.readOnly;
           cableTbody.insertBefore(clone, tr.nextSibling);
@@ -445,7 +465,7 @@
         tdDup.appendChild(btnDup);
         tr.appendChild(tdDup);
 
-        // (9) Remove button cell
+        // (11) Remove button cell
         const tdRm = document.createElement("td");
         const btnRm = document.createElement("button");
         btnRm.type = "button";
@@ -825,10 +845,12 @@
           const tagVal     = row.children[0].querySelector("input").value.trim();
           const cableType  = row.children[1].querySelector("select").value;
           const countVal   = parseInt(row.children[2].querySelector("input").value);
-          const sizeVal    = row.children[3].querySelector("input").value.trim();
-          const odVal      = parseFloat(row.children[4].querySelector("input").value);
-          const wtVal      = parseFloat(row.children[5].querySelector("input").value);
-          const groupVal   = parseInt(row.children[6].querySelector("input").value) || 1;
+          const sizeVal     = row.children[3].querySelector("input").value.trim();
+          const ratingVal   = parseFloat(row.children[4].querySelector("input").value);
+          const voltVal     = parseFloat(row.children[5].querySelector("input").value);
+          const odVal       = parseFloat(row.children[6].querySelector("input").value);
+          const wtVal       = parseFloat(row.children[7].querySelector("input").value);
+          const groupVal    = parseInt(row.children[8].querySelector("input").value) || 1;
           const multiVal   = countVal > 1;
 
           if (!tagVal) {
@@ -853,6 +875,8 @@
             cableType: cableType,
             count: countVal,
             size: sizeVal,
+            rating: ratingVal,
+            voltage: voltVal,
             OD: odVal,
             weight: wtVal,
             multi: multiVal,
@@ -1021,12 +1045,12 @@
           </p>
 
           <p>
-            <strong>Cables Smaller than 4/0 Cross‐Sectional Area:</strong>
+            <strong>Stackable Cables Cross-Sectional Area:</strong>
             ${sumSmallArea.toFixed(2)} in²
           </p>
           ${groupHTML}
           <p>
-            <strong>Sum of 4/0 and Larger Cable Diameters:</strong>
+            <strong>Non-Stackable Cables Sum of Diameters:</strong>
             ${sumLargeDiam.toFixed(2)} in
           </p>
 
@@ -1439,16 +1463,28 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           return;
         }
         // Build 2D array: header + each row’s data
-        const data = [["Tag", "Cable Type", "Conductors", "Conductor Size", "OD", "Weight", "Group"]];
+        const data = [[
+          "Tag",
+          "Cable Type",
+          "Conductors",
+          "Conductor Size",
+          "Cable Rating (V)",
+          "Operating Voltage (V)",
+          "OD",
+          "Weight",
+          "Group"
+        ]];
         rows.forEach(row => {
           const tag       = row.children[0].querySelector("input").value.trim();
           const cableType = row.children[1].querySelector("select").value;
           const count     = row.children[2].querySelector("input").value.trim();
           const size      = row.children[3].querySelector("input").value.trim();
-          const od        = row.children[4].querySelector("input").value.trim();
-          const weight    = row.children[5].querySelector("input").value.trim();
-          const group     = row.children[6].querySelector("input").value.trim();
-          data.push([tag, cableType, count, size, od, weight, group]);
+          const rating    = row.children[4].querySelector("input").value.trim();
+          const voltage   = row.children[5].querySelector("input").value.trim();
+          const od        = row.children[6].querySelector("input").value.trim();
+          const weight    = row.children[7].querySelector("input").value.trim();
+          const group     = row.children[8].querySelector("input").value.trim();
+          data.push([tag, cableType, count, size, rating, voltage, od, weight, group]);
         });
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1475,19 +1511,31 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             alert("Excel sheet is empty.");
             return;
           }
-          // Expect columns: Tag, Cable Type, Conductors, Conductor Size, OD, Weight, Group
+          // Expect columns: Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, Group
           cableTbody.innerHTML = "";
           jsonArr.forEach((obj, idx) => {
-            const { Tag, "Cable Type": CableType, Conductors, "Conductor Size": Size, OD, Weight, Group } = obj;
+            const {
+              Tag,
+              "Cable Type": CableType,
+              Conductors,
+              "Conductor Size": Size,
+              "Cable Rating (V)": Rating,
+              "Operating Voltage (V)": Voltage,
+              OD,
+              Weight,
+              Group
+            } = obj;
             if (
               typeof Tag === "undefined" ||
               typeof CableType === "undefined" ||
               typeof Conductors === "undefined" ||
               typeof Size === "undefined" ||
+              typeof Rating === "undefined" ||
+              typeof Voltage === "undefined" ||
               typeof OD === "undefined" ||
               typeof Weight === "undefined"
             ) {
-              alert(`Row ${idx + 2} missing one of: Tag, Cable Type, Conductors, Conductor Size, OD, Weight.`);
+              alert(`Row ${idx + 2} missing one of: Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight.`);
               return;
             }
             const newRow = createCableRow();
@@ -1497,13 +1545,15 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             // Set count and size
             newRow.children[2].querySelector("input").value = Conductors;
             newRow.children[3].querySelector("input").value = Size;
+            newRow.children[4].querySelector("input").value = Rating;
+            newRow.children[5].querySelector("input").value = Voltage;
             // Trigger autofill
             const sizeInput = newRow.children[3].querySelector("input");
             sizeInput.dispatchEvent(new Event("input"));
             // If not matched a default, fill custom OD/Weight
-            const odInput = newRow.children[4].querySelector("input");
-            const wtInput = newRow.children[5].querySelector("input");
-            const grpInput = newRow.children[6].querySelector("input");
+            const odInput = newRow.children[6].querySelector("input");
+            const wtInput = newRow.children[7].querySelector("input");
+            const grpInput = newRow.children[8].querySelector("input");
             if (cableOptions.findIndex(o => o.conductors === parseInt(Conductors) && o.size === Size) < 0) {
               odInput.value = parseFloat(OD).toFixed(2);
               wtInput.value = parseFloat(Weight).toFixed(2);
@@ -1524,7 +1574,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         alert(
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, OD, Weight, and Group.\n" +
+          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
           "3. Save the file then choose it with 'Import Excel'."
         );
       });
@@ -1534,7 +1584,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         alert(
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, OD, Weight, and Group.\n" +
+          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
           "3. Save the file then choose it with 'Import Excel'."
         );
       });
@@ -1544,7 +1594,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         alert(
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, OD, Weight, and Group.\n" +
+          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
           "3. Save the file then choose it with 'Import Excel'."
         );
       });
@@ -1555,7 +1605,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
 
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, OD, Weight, and Group.\n" +
+          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
 
           "3. Save the file then choose it with 'Import Excel'."
         );
@@ -1599,10 +1649,12 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           const tagVal     = row.children[0].querySelector("input").value.trim();
           const cableType  = row.children[1].querySelector("select").value;
           const countVal  = parseInt(row.children[2].querySelector("input").value);
-          const sizeVal   = row.children[3].querySelector("input").value.trim();
-          const odVal     = parseFloat(row.children[4].querySelector("input").value);
-          const wtVal     = parseFloat(row.children[5].querySelector("input").value);
-          const groupVal  = parseInt(row.children[6].querySelector("input").value) || 1;
+          const sizeVal    = row.children[3].querySelector("input").value.trim();
+          const ratingVal  = parseFloat(row.children[4].querySelector("input").value);
+          const voltVal    = parseFloat(row.children[5].querySelector("input").value);
+          const odVal      = parseFloat(row.children[6].querySelector("input").value);
+          const wtVal      = parseFloat(row.children[7].querySelector("input").value);
+          const groupVal   = parseInt(row.children[8].querySelector("input").value) || 1;
           const multiVal  = countVal > 1;
           if (!tagVal || !cableType || !countVal || !sizeVal || isNaN(odVal) || isNaN(wtVal)) {
             alert("All rows must have Tag, Cable Type, conductor count/size, OD, and Weight before saving.");
@@ -1613,6 +1665,8 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             cableType: cableType,
             count: countVal,
             size: sizeVal,
+            rating: ratingVal,
+            voltage: voltVal,
             OD: odVal,
             weight: wtVal,
             multi: multiVal,
@@ -1655,11 +1709,13 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           newRow.children[1].querySelector("select").value = cable.cableType;
           newRow.children[2].querySelector("input").value = cable.count;
           newRow.children[3].querySelector("input").value = cable.size;
+          newRow.children[4].querySelector("input").value = cable.rating || "";
+          newRow.children[5].querySelector("input").value = cable.voltage || "";
           const sizeInput = newRow.children[3].querySelector("input");
           sizeInput.dispatchEvent(new Event("input"));
-          const odInput = newRow.children[4].querySelector("input");
-          const wtInput = newRow.children[5].querySelector("input");
-          const grpInput = newRow.children[6].querySelector("input");
+          const odInput = newRow.children[6].querySelector("input");
+          const wtInput = newRow.children[7].querySelector("input");
+          const grpInput = newRow.children[8].querySelector("input");
           if (cableOptions.findIndex(o => o.conductors === cable.count && o.size === cable.size) < 0) {
             odInput.value = cable.OD.toFixed(2);
             wtInput.value = cable.weight.toFixed(2);

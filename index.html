@@ -73,6 +73,7 @@
     .removeBtn:hover {
       background-color: #c0392b;
     }
+
     .duplicateBtn {
       background-color: #95a5a6;
       color: white;
@@ -84,6 +85,7 @@
     .duplicateBtn:hover {
       background-color: #7f8c8d;
     }
+
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -740,6 +742,7 @@
           const tagVal     = row.children[0].querySelector("input").value.trim();
           const cableType  = row.children[1].querySelector("select").value;
           const configVal  = row.children[2].querySelector("input").value.trim();
+
           const odVal      = parseFloat(row.children[3].querySelector("input").value);
           const wtVal      = parseFloat(row.children[4].querySelector("input").value);
           const groupVal   = parseInt(row.children[5].querySelector("input").value) || 1;
@@ -1266,6 +1269,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           alert("No cables to export.");
           return;
         }
+
         // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight, Group]
         const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight", "Group"]];
         rows.forEach(row => {
@@ -1350,6 +1354,18 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
           "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+
           "3. Save the file then choose it with 'Import Excel'."
         );
       });

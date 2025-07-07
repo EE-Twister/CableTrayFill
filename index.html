@@ -248,10 +248,10 @@
       </tbody>
     </table>
     <p style="font-size:0.85rem; color:#555; margin-top:8px;">
-      <strong>Cable Configuration:</strong> Type any custom configuration or pick one of the Cooper B-Line defaults below.<br>
+      <strong>Cable Configuration:</strong> Type any custom configuration or pick one of the defaults.<br>
       OD & Weight auto-fill if you select a default.
     </p>
-    <!-- DATASOURCE for default Cooper B-Line configurations -->
+    <!-- DATASOURCE for default configurations -->
     <datalist id="typeList">
       <!-- Populated by script -->
     </datalist>
@@ -291,7 +291,7 @@
   <script>
     document.addEventListener("DOMContentLoaded", function() {
       // ─────────────────────────────────────────────────────────────
-      // (A) Cooper B-Line Default Configurations (3 conductors + ground) :contentReference[oaicite:0]{index=0}
+      // (A) Default Configurations (3 conductors + ground) :contentReference[oaicite:0]{index=0}
       // ─────────────────────────────────────────────────────────────
       const cableOptions = [
         { label: "3/C – #8 AWG",     OD: 0.66,   weight: 0.33 },
@@ -1218,9 +1218,9 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           // Insert multiline <text> inside each circle
           const fontSize = Math.min(r * 0.15, 20);
           const lines = [
-            `Tag: ${p.tag}`,
-            `Type: ${p.cableType}`,
-            `Config: ${p.config}`,
+            `${p.tag}`,
+            `${p.cableType}`,
+            `${p.config}`,
             `OD: ${p.OD.toFixed(2)}″`,
             `Wt: ${p.weight.toFixed(2)}`
           ];

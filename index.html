@@ -73,6 +73,17 @@
     .removeBtn:hover {
       background-color: #c0392b;
     }
+    .duplicateBtn {
+      background-color: #95a5a6;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .duplicateBtn:hover {
+      background-color: #7f8c8d;
+    }
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -226,6 +237,8 @@
           <th>Cable Configuration</th>
           <th>OD (in)</th>
           <th>Weight (lbs/ft)</th>
+          <th>Cable Group</th>
+          <th>Duplicate</th>
           <th>Remove</th>
         </tr>
       </thead>
@@ -254,6 +267,7 @@
     <button id="expandBtn">Expand Image</button>
     <button id="importExcelBtn">Import Excel</button>
     <button id="exportExcelBtn">Export Excel</button>
+    <button id="importHelpBtn">Import Help</button>
     <!-- Hidden file‐picker for .xlsx input -->
     <input type="file" id="importExcelInput" accept=".xlsx" style="display:none" />
   </div>
@@ -305,6 +319,7 @@
 
       // We’ll store last‐drawn data here (for “Expand Image”)
       let lastPlaced = null;   // array of { x, y, r, OD, tag, cableType, config, weight }
+      let lastBarriers = [];   // x positions of separation barriers
       let lastTrayW   = 0;     // in inches
       let lastTrayD   = 0;     // in inches
       let lastType    = "";    // “ladder” or “solid”
@@ -378,7 +393,43 @@
         tdWt.appendChild(inpWt);
         tr.appendChild(tdWt);
 
-        // (6) Remove button cell
+        // (6) Cable Group cell
+        const tdGrp = document.createElement("td");
+        const inpGrp = document.createElement("input");
+        inpGrp.type = "number";
+        inpGrp.step = "1";
+        inpGrp.min = "1";
+        inpGrp.style.width = "50px";
+        inpGrp.value = "1";
+        tdGrp.appendChild(inpGrp);
+        tr.appendChild(tdGrp);
+
+        // (7) Duplicate button cell
+        const tdDup = document.createElement("td");
+        const btnDup = document.createElement("button");
+        btnDup.textContent = "⧉";
+        btnDup.className = "duplicateBtn";
+        btnDup.addEventListener("click", () => {
+          const clone = createCableRow();
+          clone.children[0].querySelector("input").value = inpTag.value;
+          clone.children[1].querySelector("select").value = selCableType.value;
+          const cfgClone = clone.children[2].querySelector("input");
+          cfgClone.value = inpConfig.value;
+          cfgClone.dispatchEvent(new Event("input"));
+          const odClone = clone.children[3].querySelector("input");
+          const wtClone = clone.children[4].querySelector("input");
+          const grpClone = clone.children[5].querySelector("input");
+          odClone.value = inpOD.value;
+          wtClone.value = inpWt.value;
+          grpClone.value = inpGrp.value;
+          odClone.readOnly = inpOD.readOnly;
+          wtClone.readOnly = inpWt.readOnly;
+          cableTbody.insertBefore(clone, tr.nextSibling);
+        });
+        tdDup.appendChild(btnDup);
+        tr.appendChild(tdDup);
+
+        // (7) Remove button cell
         const tdRm = document.createElement("td");
         const btnRm = document.createElement("button");
         btnRm.textContent = "✖";
@@ -671,6 +722,26 @@
         return placed;
       }
 
+      // (3) Place an entire cable group within a given width and report width used
+      function placeGroup(groupCables, maxWidth, spacingEnabled) {
+        const { large: gLarge, small: gSmall } = splitLargeSmall(groupCables);
+        let largePlaced = [];
+        if (gLarge.length > 0) {
+          largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
+        }
+        let barrierX = 0;
+        if (largePlaced.length > 0) {
+          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
+        }
+        let finalPlaced = largePlaced;
+        if (gSmall.length > 0) {
+          finalPlaced = placeSmallByPacking(gSmall, maxWidth, barrierX, largePlaced);
+        }
+        const placed = largePlaced.concat(finalPlaced.slice(largePlaced.length));
+        const widthUsed = placed.length > 0 ? Math.max(...placed.map(p => p.x + p.r)) : 0;
+        return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
+      }
+
 
       // ─────────────────────────────────────────────────────────────
       // (E) “Draw Tray” button: gather inputs → metrics → placement → draw SVG → show warnings
@@ -691,6 +762,7 @@
           const configVal  = row.children[2].querySelector("input").value.trim();
           const odVal      = parseFloat(row.children[3].querySelector("input").value);
           const wtVal      = parseFloat(row.children[4].querySelector("input").value);
+          const groupVal   = parseInt(row.children[5].querySelector("input").value) || 1;
 
           if (!tagVal) {
             alert("ERROR: Every cable row requires a Tag.");
@@ -714,7 +786,8 @@
             cableType: cableType,
             config: configVal,
             OD: odVal,
-            weight: wtVal
+            weight: wtVal,
+            group: groupVal
           });
         }
         if (cables.length === 0) {
@@ -740,38 +813,45 @@
         // 5) Check if user wants one‐diameter spacing between 4/0+ cables
         const spacingEnabled = document.getElementById("largeSpacing").checked;
 
-        // 6) Place large cables first (largest→smallest, then spacing by larger OD)
-        let largePlaced = [];
-        if (large.length > 0) {
-          largePlaced = placeLargeIgnoreBounds(large, spacingEnabled);
-        }
+        // 6) Place cables group by group
+        const groupIds = [...new Set(cables.map(c => c.group))].sort((a,b) => a - b);
+        let placedAll = [];
+        let barrierLines = [];
+        let offset = 0;
+        let groupHTML = "";
 
-        // 7) Compute barrierX based on actual large placement
-        let barrierX = 0;
-        if (largePlaced.length > 0) {
-          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
-        }
+        // First pass: determine natural width of each group
+        const groupInfo = [];
+        let totalWidthNeeded = 0;
+        groupIds.forEach(gid => {
+          const gCables = cables.filter(c => c.group === gid);
+          const measure = placeGroup(gCables, trayW, spacingEnabled);
+          groupInfo.push({ gid, cables: gCables, width: measure.widthUsed });
+          totalWidthNeeded += measure.widthUsed;
+        });
+        const scaleFactor = totalWidthNeeded > trayW ? trayW / totalWidthNeeded : 1;
 
-        // 8) Available cross‐sectional area for small cables:
-        const availableWidth     = Math.max(0, trayW - barrierX);
-        const availableCrossArea = availableWidth * trayD;
-        const fillPercent = small.length === 0
-          ? 0
-          : (availableCrossArea > 0
-            ? Math.min(100, (sumSmallArea / availableCrossArea) * 100)
-            : 100);
+        // Second pass: actual placement using scaled widths
+        groupInfo.forEach(info => {
+          const widthLimit = info.width * scaleFactor;
+          const result = placeGroup(info.cables, widthLimit, spacingEnabled);
+          const widthUsed = result.widthUsed;
+          const areaAll = sumAreas(info.cables);
+          const fillP = widthUsed > 0 ? Math.min(100, (areaAll / (widthUsed * trayD)) * 100) : 0;
+          groupHTML += `<p><strong>Group ${info.gid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
+          if (offset > 0) barrierLines.push(offset);
+          if (result.largeCount > 0 && result.smallCount > 0) barrierLines.push(offset + result.barrierX);
+          result.placed.forEach(p => { p.x += offset; placedAll.push(p); });
+          offset += widthUsed;
+        });
 
-        // 9) Determine if ALL cables are Control/Signal
-        const allCS = cables.every(c =>
-          c.cableType === "Control" || c.cableType === "Signal"
-        );
+        // 7) Determine if ALL cables are Control/Signal
+        const allCS = cables.every(c => c.cableType === "Control" || c.cableType === "Signal");
 
-        // 10) NFPA 70 Table 392.22(A) warning (area vs sumLargeDiam) — only if NOT allCS
+        // 8) NFPA 70 Table 392.22(A) warning (area vs sumLargeDiam) — only if NOT allCS
         let nfpaWarning = "";
         if (!allCS) {
-          const baseAllow = (trayType === "ladder")
-            ? nfpaLadder[trayW] || 0
-            : nfpaSolid[trayW] || 0;
+          const baseAllow = (trayType === "ladder") ? (nfpaLadder[trayW] || 0) : (nfpaSolid[trayW] || 0);
           const penaltyFactor = (trayType === "ladder") ? 1.2 : 1.0;
           if (baseAllow > 0) {
             let nfpaAllowable = baseAllow - (penaltyFactor * sumLargeDiam);
@@ -781,62 +861,45 @@
                 <p class="nfpaWarn">
                   NFPA 70 Table 392.22(A) WARNING:<br>
                   Small‐cable area (${sumSmallArea.toFixed(2)} in²) exceeds NFPA allowable
-                  (${nfpaAllowable.toFixed(2)} in²) for a ${trayW}" ${
-                trayType === "ladder" ? "Ladder" : "Solid Bottom"
-              } tray.
+                  (${nfpaAllowable.toFixed(2)} in²) for a ${trayW}" ${trayType === "ladder" ? "Ladder" : "Solid Bottom"} tray.
                 </p>`;
             }
           }
         }
 
-        // 11) NFPA 70 392.22(A)(2) & (4) warning for Control/Signal‐only
+        // 9) NFPA 70 392.22(A)(2) & (4) warning for Control/Signal‐only
         let csWarning = "";
+        const overallFill = (sumSmallArea / (trayW * trayD)) * 100;
         if (allCS) {
-          if (trayType === "ladder" && fillPercent > 50) {
+          if (trayType === "ladder" && overallFill > 50) {
             csWarning = `
               <p class="nfpaWarn">
                 NFPA 70 392.22(A)(2) WARNING:<br>
-                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)} %) exceeds 50 % for Ladder tray.
+                All cables are Control/Signal and Fill % (${overallFill.toFixed(0)} %) exceeds 50 % for Ladder tray.
               </p>`;
-          } else if (trayType === "solid" && fillPercent > 40) {
+          } else if (trayType === "solid" && overallFill > 40) {
             csWarning = `
               <p class="nfpaWarn">
                 NFPA 70 392.22(A)(4) WARNING:<br>
-                All cables are Control/Signal and Fill % (${fillPercent.toFixed(0)} %) exceeds 40 % for Solid Bottom tray.
+                All cables are Control/Signal and Fill % (${overallFill.toFixed(0)} %) exceeds 40 % for Solid Bottom tray.
               </p>`;
           }
         }
 
-        // 12) Summarize metrics + total weight
+        // 10) Summarize metrics + total weight
         const totalWeight = cables.reduce((sum, c) => sum + c.weight, 0);
         let resultsHTML = `
           <p>
             <strong>Using Tray Width:</strong> ${trayW}"<br>
             <strong>Tray Depth:</strong> ${trayD}"<br>
-            <strong>Type:</strong> ${
-              trayType === "ladder"
-                ? "Ladder (50 % fill)"
-                : "Solid Bottom (40 % fill)"
-            }
+            <strong>Type:</strong> ${trayType === "ladder" ? "Ladder (50 % fill)" : "Solid Bottom (40 % fill)"}
           </p>
 
           <p>
             <strong>Cables Smaller than 4/0 Cross‐Sectional Area:</strong>
             ${sumSmallArea.toFixed(2)} in²
           </p>
-
-          <!-- Fill Percentage -->
-          <p>
-            <strong>Fill Percentage (Small vs Available):</strong>
-            ${fillPercent.toFixed(0)} %
-          </p>
-
-          <!-- NFPA 392.22(A) area‐vs‐diameter warning (suppressed if allCS) -->
-          ${nfpaWarning}
-
-          <!-- NFPA 392.22(A)(2)/(4) Control/Signal‐only warning -->
-          ${csWarning}
-
+          ${groupHTML}
           <p>
             <strong>Sum of 4/0 and Larger Cable Diameters:</strong>
             ${sumLargeDiam.toFixed(2)} in
@@ -845,28 +908,17 @@
           <p>
             <strong>Total Cable Weight:</strong> ${totalWeight.toFixed(2)} lbs/ft
           </p>
+          ${nfpaWarning}
+          ${csWarning}
         `;
 
-        // 13) Place small cables, if any
-        let placedAll = [];
-        if (largePlaced.length > 0 && small.length > 0) {
-          const smallPlaced = placeSmallByPacking(small, trayW, barrierX, largePlaced);
-          placedAll = largePlaced.concat(smallPlaced.slice(largePlaced.length));
-        }
-        else if (largePlaced.length > 0) {
-          placedAll = largePlaced;
-        }
-        else {
-          const smallPlaced = placeSmallByPacking(small, trayW, 0, []);
-          placedAll = smallPlaced;
-        }
-
         // Store for “Expand Image”
-        lastPlaced = placedAll;
-        lastTrayW   = trayW;
-        lastTrayD   = trayD;
-        lastType    = trayType;
-        lastScale   = 20;  // px/in for small view
+        lastPlaced   = placedAll;
+        lastBarriers = barrierLines;
+        lastTrayW    = trayW;
+        lastTrayD    = trayD;
+        lastType     = trayType;
+        lastScale    = 20;  // px/in for small view
 
         // 14) Detect overflow horizontally/vertically
         let overflowHoriz = false;
@@ -909,49 +961,19 @@
           `;
         }
 
-        // (B) Draw the dimension line from x=0 → x=barrierX*scale,
-        //     with small tick‐marks at each end, and place text of barrierX inches in middle.
-        if (barrierX > 0) {
-          const barrierXpx = barrierX * scale;
-          // Horizontal line
+        // (B) Draw separation barriers
+        barrierLines.forEach(x => {
+          const xp = (x * scale).toFixed(2);
           svg += `
             <line
-              x1="0" y1="${dimLineY}"
-              x2="${barrierXpx.toFixed(2)}" y2="${dimLineY}"
-              stroke="#333"
+              x1="${xp}" y1="${trayTopY}"
+              x2="${xp}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
+              stroke="#aa3300"
               stroke-width="2"
+              stroke-dasharray="4 2"
             />
           `;
-          // Left tick
-          svg += `
-            <line
-              x1="0" y1="${dimLineY - 4}"
-              x2="0" y2="${dimLineY + 4}"
-              stroke="#333"
-              stroke-width="2"
-            />
-          `;
-          // Right tick
-          svg += `
-            <line
-              x1="${barrierXpx.toFixed(2)}" y1="${dimLineY - 4}"
-              x2="${barrierXpx.toFixed(2)}" y2="${dimLineY + 4}"
-              stroke="#333"
-              stroke-width="2"
-            />
-          `;
-          // Text label (distance)
-          svg += `
-            <text
-              x="${(barrierXpx / 2).toFixed(2)}"
-              y="${(dimLineY - 6).toFixed(2)}"
-              font-size="12px"
-              text-anchor="middle"
-              fill="#333"
-              font-family="Arial, sans-serif"
-            >${barrierX.toFixed(2)}″</text>
-          `;
-        }
+        });
 
         // (C) Draw the tray rectangle (starts at trayTopY)
         svg += `
@@ -965,19 +987,7 @@
           />
         `;
 
-        // (D) If mixed large + small, draw the barrier line (shifted down by trayTopY)
-        if (largePlaced.length > 0 && small.length > 0) {
-          const barXpx = (barrierX * scale).toFixed(2);
-          svg += `
-            <line
-              x1="${barXpx}" y1="${trayTopY}"
-              x2="${barXpx}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
-              stroke="#aa3300"
-              stroke-width="2"
-              stroke-dasharray="4 2"
-            />
-          `;
-        }
+
 
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
@@ -1085,52 +1095,19 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           `;
         }
 
-        // (B) Dimension from left boundary → barrier
-        const largeCables = lastPlaced.filter(p => p.OD >= 1.55);
-        if (largeCables.length > 0) {
-          const barrierX = Math.max(...largeCables.map(p => p.x + p.r));
-          if (barrierX > 0) {
-            const barrierXpx = barrierX * bigScale;
-            // Horizontal line
-            svg += `
-              <line
-                x1="0" y1="${dimLineY}"
-                x2="${barrierXpx.toFixed(2)}" y2="${dimLineY}"
-                stroke="#333"
-                stroke-width="3"
-              />
-            `;
-            // Left tick
-            svg += `
-              <line
-                x1="0" y1="${dimLineY - 6}"
-                x2="0" y2="${dimLineY + 6}"
-                stroke="#333"
-                stroke-width="3"
-              />
-            `;
-            // Right tick
-            svg += `
-              <line
-                x1="${barrierXpx.toFixed(2)}" y1="${dimLineY - 6}"
-                x2="${barrierXpx.toFixed(2)}" y2="${dimLineY + 6}"
-                stroke="#333"
-                stroke-width="3"
-              />
-            `;
-            // Text label
-            svg += `
-              <text
-                x="${(barrierXpx / 2).toFixed(2)}"
-                y="${(dimLineY - 10).toFixed(2)}"
-                font-size="18px"
-                text-anchor="middle"
-                fill="#333"
-                font-family="Arial, sans-serif"
-              >${barrierX.toFixed(2)}″</text>
-            `;
-          }
-        }
+        // (B) Draw separation barriers
+        lastBarriers.forEach(x => {
+          const xp = (x * bigScale).toFixed(2);
+          svg += `
+            <line
+              x1="${xp}" y1="${trayTopY}"
+              x2="${xp}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
+              stroke="#aa3300"
+              stroke-width="4"
+              stroke-dasharray="12 6"
+            />
+          `;
+        });
 
         // (C) Draw the tray rectangle
         svg += `
@@ -1144,22 +1121,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           />
         `;
 
-        // (D) Draw barrier if mixed
-        if (largeCables.length > 0 && lastPlaced.length > largeCables.length) {
-          const barrierX = Math.max(...largeCables.map(p => p.x + p.r));
-          const barXpx = barrierX * bigScale;
-          svg += `
-            <line
-              x1="${barXpx.toFixed(2)}" y1="${trayTopY}"
-              x2="${barXpx.toFixed(2)}" y2="${(trayTopY + trayRowPx).toFixed(2)}"
-              stroke="#aa3300"
-              stroke-width="4"
-              stroke-dasharray="12 6"
-            />
-          `;
-        }
-
-        // (E) Draw each circle + inline text inside
+        // (D) Draw each circle + inline text inside
         lastPlaced.forEach(p => {
           const cx = p.x * bigScale;
           const cy = trayTopY + ((trayD - p.y) * bigScale);
@@ -1321,15 +1283,16 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           alert("No cables to export.");
           return;
         }
-        // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight]
-        const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight"]];
+        // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight, Group]
+        const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight", "Group"]];
         rows.forEach(row => {
           const tag       = row.children[0].querySelector("input").value.trim();
           const cableType = row.children[1].querySelector("select").value;
           const config    = row.children[2].querySelector("input").value.trim();
           const od        = row.children[3].querySelector("input").value.trim();
           const weight    = row.children[4].querySelector("input").value.trim();
-          data.push([tag, cableType, config, od, weight]);
+          const group     = row.children[5].querySelector("input").value.trim();
+          data.push([tag, cableType, config, od, weight, group]);
         });
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1356,10 +1319,10 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             alert("Excel sheet is empty.");
             return;
           }
-          // Expect columns: Tag, Cable Type, Cable Configuration, OD, Weight
+          // Expect columns: Tag, Cable Type, Cable Configuration, OD, Weight, Group
           cableTbody.innerHTML = "";
           jsonArr.forEach((obj, idx) => {
-            const { Tag, "Cable Type": CableType, "Cable Configuration": Config, OD, Weight } = obj;
+            const { Tag, "Cable Type": CableType, "Cable Configuration": Config, OD, Weight, Group } = obj;
             if (
               typeof Tag === "undefined" ||
               typeof CableType === "undefined" ||
@@ -1382,18 +1345,30 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             // If not matched a default, fill custom OD/Weight
             const odInput = newRow.children[3].querySelector("input");
             const wtInput = newRow.children[4].querySelector("input");
+            const grpInput = newRow.children[5].querySelector("input");
             if (cableOptions.findIndex(o => o.label === Config) < 0) {
               odInput.value = parseFloat(OD).toFixed(2);
               wtInput.value = parseFloat(Weight).toFixed(2);
               odInput.readOnly = false;
               wtInput.readOnly = false;
             }
+            grpInput.value = Group || 1;
             cableTbody.appendChild(newRow);
           });
           alert("Excel imported. Correct any unrecognized configurations if needed.");
           document.getElementById("importExcelInput").value = "";
         };
         reader.readAsBinaryString(file);
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
       });
 
       // ─────────────────────────────────────────────────────────────
@@ -1436,6 +1411,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           const configVal  = row.children[2].querySelector("input").value.trim();
           const odVal      = parseFloat(row.children[3].querySelector("input").value);
           const wtVal      = parseFloat(row.children[4].querySelector("input").value);
+          const groupVal   = parseInt(row.children[5].querySelector("input").value) || 1;
           if (!tagVal || !cableType || !configVal || isNaN(odVal) || isNaN(wtVal)) {
             alert("All rows must have Tag, Cable Type, Configuration, OD, and Weight before saving.");
             return;
@@ -1445,7 +1421,8 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             cableType: cableType,
             config: configVal,
             OD: odVal,
-            weight: wtVal
+            weight: wtVal,
+            group: groupVal
           });
         }
         try {
@@ -1488,12 +1465,14 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           cfgInput.dispatchEvent(new Event("input"));
           const odInput = newRow.children[3].querySelector("input");
           const wtInput = newRow.children[4].querySelector("input");
+          const grpInput = newRow.children[5].querySelector("input");
           if (cableOptions.findIndex(o => o.label === cable.config) < 0) {
             odInput.value = cable.OD.toFixed(2);
             wtInput.value = cable.weight.toFixed(2);
             odInput.readOnly = false;
             wtInput.readOnly = false;
           }
+          grpInput.value = cable.group || 1;
           cableTbody.appendChild(newRow);
         });
         alert(`Profile "${profileName}" loaded.`);

@@ -870,21 +870,40 @@
           recommendedWidth = layoutWidth;
         }
 
-        const scaleFactor = totalWidthNeeded > trayW ? trayW / totalWidthNeeded : 1;
+        let scaleFactor = totalWidthNeeded > trayW ? trayW / totalWidthNeeded : 1;
 
-        // Second pass: actual placement using scaled widths
-        groupInfo.forEach(info => {
-          const widthLimit = info.width * scaleFactor;
-          const result = placeGroup(info.cables, widthLimit, spacingEnabled);
-          const widthUsed = result.widthUsed;
-          const areaAll = sumAreas(info.cables);
-          const fillP = widthUsed > 0 ? Math.min(100, (areaAll / (widthUsed * trayD)) * 100) : 0;
-          groupHTML += `<p><strong>Group ${info.gid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
-          if (offset > 0) barrierLines.push(offset);
-          if (result.largeCount > 0 && result.smallCount > 0) barrierLines.push(offset + result.barrierX);
-          result.placed.forEach(p => { p.x += offset; placedAll.push(p); });
-          offset += widthUsed;
-        });
+        // Helper to place all groups using a given scale factor
+        function layoutGroups(scale) {
+          let off = 0;
+          let html = "";
+          const lines = [];
+          const placed = [];
+          groupInfo.forEach(info => {
+            const widthLimit = info.width * scale;
+            const result = placeGroup(info.cables, widthLimit, spacingEnabled);
+            const widthUsed = result.widthUsed;
+            const areaAll = sumAreas(info.cables);
+            const fillP = widthUsed > 0 ? Math.min(100, (areaAll / (widthUsed * trayD)) * 100) : 0;
+            html += `<p><strong>Group ${info.gid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
+            if (off > 0) lines.push(off);
+            if (result.largeCount > 0 && result.smallCount > 0) lines.push(off + result.barrierX);
+            result.placed.forEach(p => { p.x += off; placed.push(p); });
+            off += widthUsed;
+          });
+          return { placed, lines, width: off, html };
+        }
+
+        // Try packing with iterative scaling until width fits within the tray
+        let layout = layoutGroups(scaleFactor);
+        for (let i = 0; i < 8 && layout.width > trayW + 1e-6; i++) {
+          scaleFactor *= trayW / layout.width;
+          layout = layoutGroups(scaleFactor);
+        }
+
+        placedAll    = layout.placed;
+        barrierLines = layout.lines;
+        offset       = layout.width;
+        groupHTML    = layout.html;
 
         // If combined width exceeds tray width, simply report overflow.
         // Previously the code scaled x positions to "squish" the layout, but

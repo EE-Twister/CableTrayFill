@@ -744,6 +744,26 @@
         return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
       }
 
+      // (3) Place an entire cable group within a given width and report width used
+      function placeGroup(groupCables, maxWidth, spacingEnabled) {
+        const { large: gLarge, small: gSmall } = splitLargeSmall(groupCables);
+        let largePlaced = [];
+        if (gLarge.length > 0) {
+          largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
+        }
+        let barrierX = 0;
+        if (largePlaced.length > 0) {
+          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
+        }
+        let finalPlaced = largePlaced;
+        if (gSmall.length > 0) {
+          finalPlaced = placeSmallByPacking(gSmall, maxWidth, barrierX, largePlaced);
+        }
+        const placed = largePlaced.concat(finalPlaced.slice(largePlaced.length));
+        const widthUsed = placed.length > 0 ? Math.max(...placed.map(p => p.x + p.r)) : 0;
+        return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
+      }
+
 
       // ─────────────────────────────────────────────────────────────
       // (E) “Draw Tray” button: gather inputs → metrics → placement → draw SVG → show warnings
@@ -988,8 +1008,6 @@
             stroke-width="2"
           />
         `;
-
-
 
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
@@ -1369,6 +1387,38 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
           "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+
           "3. Save the file then choose it with 'Import Excel'."
         );
       });

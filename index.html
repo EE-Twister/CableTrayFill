@@ -236,6 +236,7 @@
           <th>Cable Type</th>
           <th>Cable Configuration</th>
           <th>OD (in)</th>
+
           <th>Weight (lbs/ft)</th>
           <th>Cable Group</th>
           <th>Duplicate</th>
@@ -988,7 +989,6 @@
         `;
 
 
-
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
           const cx = p.x * scale;
@@ -1120,6 +1120,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             stroke-width="4"
           />
         `;
+
 
         // (D) Draw each circle + inline text inside
         lastPlaced.forEach(p => {
@@ -1285,6 +1286,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         }
         // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight, Group]
         const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight", "Group"]];
+
         rows.forEach(row => {
           const tag       = row.children[0].querySelector("input").value.trim();
           const cableType = row.children[1].querySelector("select").value;
@@ -1354,7 +1356,6 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             }
             grpInput.value = Group || 1;
             cableTbody.appendChild(newRow);
-          });
           alert("Excel imported. Correct any unrecognized configurations if needed.");
           document.getElementById("importExcelInput").value = "";
         };
@@ -1367,6 +1368,28 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
           "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+
           "3. Save the file then choose it with 'Import Excel'."
         );
       });

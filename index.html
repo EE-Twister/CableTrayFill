@@ -830,7 +830,7 @@
 
         // 4) Split large vs. small, compute recommended width
         const { large, small } = splitLargeSmall(cables);
-        const recommendedWidth = computeNeededWidth(large, small, trayType);
+        let recommendedWidth = computeNeededWidth(large, small, trayType);
 
         // 5) Check if user wants one‐diameter spacing between 4/0+ cables
         const spacingEnabled = document.getElementById("largeSpacing").checked;
@@ -851,6 +851,13 @@
           groupInfo.push({ gid, cables: gCables, width: measure.widthUsed });
           totalWidthNeeded += measure.widthUsed;
         });
+
+        // Adjust recommended width based on actual layout requirement
+        const layoutWidth = standardWidths.find(w => w >= totalWidthNeeded) || null;
+        if (!recommendedWidth || (layoutWidth && layoutWidth > recommendedWidth)) {
+          recommendedWidth = layoutWidth;
+        }
+
         const scaleFactor = totalWidthNeeded > trayW ? trayW / totalWidthNeeded : 1;
 
         // Second pass: actual placement using scaled widths
@@ -1006,6 +1013,21 @@
           `;
         });
 
+        // (B2) Dimension lines for each zone
+        const zoneBounds = [0, ...barrierLines, trayW];
+        for (let i = 0; i < zoneBounds.length - 1; i++) {
+          const xs = zoneBounds[i] * scale;
+          const xe = zoneBounds[i+1] * scale;
+          const mid = (xs + xe) / 2;
+          const wText = (zoneBounds[i+1] - zoneBounds[i]).toFixed(1) + '"';
+          svg += `
+            <line x1="${xs.toFixed(2)}" y1="${dimLineY}" x2="${xe.toFixed(2)}" y2="${dimLineY}" stroke="#000" stroke-width="1" />
+            <line x1="${xs.toFixed(2)}" y1="${dimLineY-4}" x2="${xs.toFixed(2)}" y2="${dimLineY+4}" stroke="#000" stroke-width="1" />
+            <line x1="${xe.toFixed(2)}" y1="${dimLineY-4}" x2="${xe.toFixed(2)}" y2="${dimLineY+4}" stroke="#000" stroke-width="1" />
+            <text x="${mid.toFixed(2)}" y="${dimLineY-6}" font-size="10px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
+          `;
+        }
+
         // (C) Draw the tray rectangle (starts at trayTopY)
         svg += `
           <rect
@@ -1137,6 +1159,21 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             />
           `;
         });
+
+        // (B2) Dimension lines for each zone
+        const bigZone = [0, ...lastBarriers, trayW];
+        for (let i = 0; i < bigZone.length - 1; i++) {
+          const xs = bigZone[i] * bigScale;
+          const xe = bigZone[i+1] * bigScale;
+          const mid = (xs + xe) / 2;
+          const wText = (bigZone[i+1] - bigZone[i]).toFixed(1) + '"';
+          svg += `
+            <line x1="${xs.toFixed(2)}" y1="${dimLineY}" x2="${xe.toFixed(2)}" y2="${dimLineY}" stroke="#000" stroke-width="2" />
+            <line x1="${xs.toFixed(2)}" y1="${dimLineY-8}" x2="${xs.toFixed(2)}" y2="${dimLineY+8}" stroke="#000" stroke-width="2" />
+            <line x1="${xe.toFixed(2)}" y1="${dimLineY-8}" x2="${xe.toFixed(2)}" y2="${dimLineY+8}" stroke="#000" stroke-width="2" />
+            <text x="${mid.toFixed(2)}" y="${dimLineY-10}" font-size="18px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
+          `;
+        }
 
         // (C) Draw the tray rectangle
         svg += `

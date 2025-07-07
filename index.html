@@ -73,6 +73,17 @@
     .removeBtn:hover {
       background-color: #c0392b;
     }
+    .duplicateBtn {
+      background-color: #95a5a6;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .duplicateBtn:hover {
+      background-color: #7f8c8d;
+    }
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -1350,7 +1361,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         alert(
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Cable Configuration, OD and Weight.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
           "3. Save the file then choose it with 'Import Excel'."
         );
       });

@@ -969,7 +969,7 @@
         // 15) Draw the SVG (20 px/in) but with extra rows for “name” and “dimension”
         const scale = lastScale;
         const nameRowPx    = 20;   // 20px for the tray name
-        const dimRowPx     = 16;   // 16px for the dimension callout
+        const dimRowPx     = 24;   // more room for dimension text
         const trayRowPx    = trayD * scale;
         const totalSvgH    = nameRowPx + dimRowPx + trayRowPx;
         const totalSvgW    = trayW * scale;
@@ -1024,7 +1024,7 @@
             <line x1="${xs.toFixed(2)}" y1="${dimLineY}" x2="${xe.toFixed(2)}" y2="${dimLineY}" stroke="#000" stroke-width="1" />
             <line x1="${xs.toFixed(2)}" y1="${dimLineY-4}" x2="${xs.toFixed(2)}" y2="${dimLineY+4}" stroke="#000" stroke-width="1" />
             <line x1="${xe.toFixed(2)}" y1="${dimLineY-4}" x2="${xe.toFixed(2)}" y2="${dimLineY+4}" stroke="#000" stroke-width="1" />
-            <text x="${mid.toFixed(2)}" y="${dimLineY-6}" font-size="10px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
+            <text x="${mid.toFixed(2)}" y="${dimLineY+10}" font-size="10px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
           `;
         }
 
@@ -1116,7 +1116,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         const trayW = lastTrayW, trayD = lastTrayD;
         const trayName = document.getElementById("trayName").value.trim();
         const nameRowPx    = 30;   // give more room for big text
-        const dimRowPx     = 24;
+        const dimRowPx     = 36;   // more room for dimension text
         const trayRowPx    = trayD * bigScale;
         const totalSvgH    = nameRowPx + dimRowPx + trayRowPx;
         const totalSvgW    = trayW * bigScale;
@@ -1171,7 +1171,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             <line x1="${xs.toFixed(2)}" y1="${dimLineY}" x2="${xe.toFixed(2)}" y2="${dimLineY}" stroke="#000" stroke-width="2" />
             <line x1="${xs.toFixed(2)}" y1="${dimLineY-8}" x2="${xs.toFixed(2)}" y2="${dimLineY+8}" stroke="#000" stroke-width="2" />
             <line x1="${xe.toFixed(2)}" y1="${dimLineY-8}" x2="${xe.toFixed(2)}" y2="${dimLineY+8}" stroke="#000" stroke-width="2" />
-            <text x="${mid.toFixed(2)}" y="${dimLineY-10}" font-size="18px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
+            <text x="${mid.toFixed(2)}" y="${dimLineY+16}" font-size="18px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
           `;
         }
 

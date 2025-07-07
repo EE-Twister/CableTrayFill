@@ -216,19 +216,19 @@
   <!-- PROFILE CONTROLS -->
   <div id="profileControls">
     <h2>Profile Management</h2>
-    <button id="saveProfileBtn">Save Profile</button>
+    <button id="saveProfileBtn" type="button">Save Profile</button>
     <label for="profileList">Load Profile:</label>
     <select id="profileList">
       <option value="">-- no profiles saved --</option>
     </select>
-    <button id="loadProfileBtn">Load Profile</button>
-    <button id="deleteProfileBtn">Delete Profile</button>
+    <button id="loadProfileBtn" type="button">Load Profile</button>
+    <button id="deleteProfileBtn" type="button">Delete Profile</button>
   </div>
 
   <!-- CABLE ENTRY TABLE -->
   <fieldset>
     <legend><strong>Enter Cables</strong></legend>
-    <button id="addCableBtn">Add Cable</button>
+    <button id="addCableBtn" type="button">Add Cable</button>
     <table id="cableTable">
       <thead>
         <tr>
@@ -236,7 +236,6 @@
           <th>Cable Type</th>
           <th>Cable Configuration</th>
           <th>OD (in)</th>
-
           <th>Weight (lbs/ft)</th>
           <th>Cable Group</th>
           <th>Duplicate</th>
@@ -264,11 +263,11 @@
       Add one‐diameter spacing between 4/0+ cables
     </label>
     <br/>
-    <button id="drawBtn">Draw Tray</button>
-    <button id="expandBtn">Expand Image</button>
-    <button id="importExcelBtn">Import Excel</button>
-    <button id="exportExcelBtn">Export Excel</button>
-    <button id="importHelpBtn">Import Help</button>
+    <button id="drawBtn" type="button">Draw Tray</button>
+    <button id="expandBtn" type="button">Expand Image</button>
+    <button id="importExcelBtn" type="button">Import Excel</button>
+    <button id="exportExcelBtn" type="button">Export Excel</button>
+    <button id="importHelpBtn" type="button">Import Help</button>
     <!-- Hidden file‐picker for .xlsx input -->
     <input type="file" id="importExcelInput" accept=".xlsx" style="display:none" />
   </div>
@@ -279,17 +278,17 @@
   <!-- OVERLAY + POPUP FOR EXPANDED VIEW -->
   <div id="overlay">
     <div id="popup">
-      <button id="popupClose">Close</button>
-      <button id="copyPngBtn">Copy PNG</button>
-      <button id="printBtn">Print SVG</button>
-      <button id="copyBtn">Copy SVG</button>
+      <button id="popupClose" type="button">Close</button>
+      <button id="copyPngBtn" type="button">Copy PNG</button>
+      <button id="printBtn" type="button">Print SVG</button>
+      <button id="copyBtn" type="button">Copy SVG</button>
       <!-- Expanded SVG will be injected here -->
       <div id="expandedSVG"></div>
     </div>
   </div>
 
   <script>
-    (function() {
+    document.addEventListener("DOMContentLoaded", function() {
       // ─────────────────────────────────────────────────────────────
       // (A) Cooper B-Line Default Configurations (3 conductors + ground) :contentReference[oaicite:0]{index=0}
       // ─────────────────────────────────────────────────────────────
@@ -408,6 +407,7 @@
         // (7) Duplicate button cell
         const tdDup = document.createElement("td");
         const btnDup = document.createElement("button");
+        btnDup.type = "button";
         btnDup.textContent = "⧉";
         btnDup.className = "duplicateBtn";
         btnDup.addEventListener("click", () => {
@@ -433,6 +433,7 @@
         // (7) Remove button cell
         const tdRm = document.createElement("td");
         const btnRm = document.createElement("button");
+        btnRm.type = "button";
         btnRm.textContent = "✖";
         btnRm.className = "removeBtn";
         btnRm.addEventListener("click", () => {
@@ -743,6 +744,26 @@
         return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
       }
 
+      // (3) Place an entire cable group within a given width and report width used
+      function placeGroup(groupCables, maxWidth, spacingEnabled) {
+        const { large: gLarge, small: gSmall } = splitLargeSmall(groupCables);
+        let largePlaced = [];
+        if (gLarge.length > 0) {
+          largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
+        }
+        let barrierX = 0;
+        if (largePlaced.length > 0) {
+          barrierX = Math.max(...largePlaced.map(p => p.x + p.r));
+        }
+        let finalPlaced = largePlaced;
+        if (gSmall.length > 0) {
+          finalPlaced = placeSmallByPacking(gSmall, maxWidth, barrierX, largePlaced);
+        }
+        const placed = largePlaced.concat(finalPlaced.slice(largePlaced.length));
+        const widthUsed = placed.length > 0 ? Math.max(...placed.map(p => p.x + p.r)) : 0;
+        return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
+      }
+
 
       // ─────────────────────────────────────────────────────────────
       // (E) “Draw Tray” button: gather inputs → metrics → placement → draw SVG → show warnings
@@ -988,7 +1009,6 @@
           />
         `;
 
-
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
           const cx = p.x * scale;
@@ -1120,7 +1140,6 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             stroke-width="4"
           />
         `;
-
 
         // (D) Draw each circle + inline text inside
         lastPlaced.forEach(p => {
@@ -1286,7 +1305,6 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         }
         // Build 2D array: header + each row’s [Tag, Cable Type, Cable Configuration, OD, Weight, Group]
         const data = [["Tag", "Cable Type", "Cable Configuration", "OD", "Weight", "Group"]];
-
         rows.forEach(row => {
           const tag       = row.children[0].querySelector("input").value.trim();
           const cableType = row.children[1].querySelector("select").value;
@@ -1356,10 +1374,21 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             }
             grpInput.value = Group || 1;
             cableTbody.appendChild(newRow);
+          });
           alert("Excel imported. Correct any unrecognized configurations if needed.");
           document.getElementById("importExcelInput").value = "";
         };
         reader.readAsBinaryString(file);
+      });
+
+      // (L2) Import Help button
+      document.getElementById("importHelpBtn").addEventListener("click", () => {
+        alert(
+          "Import Instructions:\n" +
+          "1. Click 'Export Excel' to download a template.\n" +
+          "2. Fill in Tag, Cable Type, Cable Configuration, OD, Weight, and Group.\n" +
+          "3. Save the file then choose it with 'Import Excel'."
+        );
       });
 
       // (L2) Import Help button
@@ -1516,7 +1545,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
 
       // Initialize profile dropdown
       refreshProfileList();
-    })();
+    });
   </script>
 </body>
 </html>

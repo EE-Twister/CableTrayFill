@@ -590,6 +590,7 @@
         cables.forEach(c => {
           const r = sizeRank(c.size);
           if (
+            c.isGroup ||
             c.OD >= 1.55 ||
             (c.count === 1 && r >= rank1_0 && r <= rank4_0)
           ) {
@@ -1265,6 +1266,20 @@
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
           if (p.isGroup && p.members && p.offsets) {
+            const gcx = p.x * scale;
+            const gcy = trayTopY + ((trayD - p.y) * scale);
+            const gr  = p.r * scale;
+            svg += `
+              <circle
+                cx="${gcx.toFixed(2)}"
+                cy="${gcy.toFixed(2)}"
+                r="${gr.toFixed(2)}"
+                fill="none"
+                stroke="#0066aa"
+                stroke-width="1"
+                stroke-dasharray="4 2"
+              />
+            `;
             p.members.forEach((m, idx) => {
               const mx = (p.x + p.offsets[idx].x) * scale;
               const my = trayTopY + ((trayD - (p.y + p.offsets[idx].y)) * scale);

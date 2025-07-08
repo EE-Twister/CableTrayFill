@@ -1037,10 +1037,10 @@
         zoneIds.forEach(zid => {
           const gCables = placementCables.filter(c => c.zone === zid);
           const measure = placeZone(gCables, trayW, spacingEnabled);
+          const origCables = cables.filter(c => c.zone === zid);
           zoneInfo.push({ zid, cables: gCables, orig: origCables, width: measure.widthUsed });
           totalWidthNeeded += measure.widthUsed;
 
-          const origCables = cables.filter(c => c.zone === zid);
           const volts   = origCables.map(c => c.voltage).filter(v => !isNaN(v));
           const ratings = origCables.map(c => c.rating).filter(v => !isNaN(v));
           if (volts.length > 0 && ratings.length > 0) {

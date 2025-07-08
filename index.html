@@ -266,7 +266,7 @@
           <th>Operating Voltage (V) <button class="helpBtn" data-help="Actual working voltage on the cable.">?</button></th>
           <th>OD (in) <button class="helpBtn" data-help="Outer diameter of the cable in inches.">?</button></th>
           <th>Weight (lbs/ft) <button class="helpBtn" data-help="Cable weight per foot.">?</button></th>
-          <th>Cable Group <button class="helpBtn" data-help="Numeric group for organizing cables. If Stackable and Non-Stackable Cables are placed in the same group than a divider will automatically be added.">?</button></th>
+          <th>Cable Zone <button class="helpBtn" data-help="Numeric zone for organizing cables. If Stackable and Non-Stackable Cables are placed in the same zone then a divider will automatically be added.">?</button></th>
           <th>Duplicate</th>
           <th>Remove</th>
         </tr>
@@ -450,16 +450,16 @@
         inpWt.readOnly = true;
         tdWt.appendChild(inpWt);
         tr.appendChild(tdWt);
-        // (9) Cable Group cell
-        const tdGrp = document.createElement("td");
-        const inpGrp = document.createElement("input");
-        inpGrp.type = "number";
-        inpGrp.step = "1";
-        inpGrp.min = "1";
-        inpGrp.style.width = "50px";
-        inpGrp.value = "1";
-        tdGrp.appendChild(inpGrp);
-        tr.appendChild(tdGrp);
+        // (9) Cable Zone cell
+        const tdZone = document.createElement("td");
+        const inpZone = document.createElement("input");
+        inpZone.type = "number";
+        inpZone.step = "1";
+        inpZone.min = "1";
+        inpZone.style.width = "50px";
+        inpZone.value = "1";
+        tdZone.appendChild(inpZone);
+        tr.appendChild(tdZone);
         // (10) Duplicate button cell
         const tdDup = document.createElement("td");
         const btnDup = document.createElement("button");
@@ -478,12 +478,12 @@
           const voltClone   = clone.children[5].querySelector("input");
           const odClone     = clone.children[6].querySelector("input");
           const wtClone     = clone.children[7].querySelector("input");
-          const grpClone    = clone.children[8].querySelector("input");
+          const zoneClone    = clone.children[8].querySelector("input");
           ratingClone.value = inpRating.value;
           voltClone.value   = inpVolt.value;
           odClone.value     = inpOD.value;
           wtClone.value     = inpWt.value;
-          grpClone.value    = inpGrp.value;
+          zoneClone.value    = inpZone.value;
           odClone.readOnly = inpOD.readOnly;
           wtClone.readOnly = inpWt.readOnly;
           cableTbody.insertBefore(clone, tr.nextSibling);
@@ -813,9 +813,9 @@
         return placed;
       }
 
-      // (3) Place an entire cable group within a given width and report width used
-      function placeGroup(groupCables, maxWidth, spacingEnabled) {
-        const { large: gLarge, small: gSmall } = splitLargeSmall(groupCables);
+      // (3) Place an entire cable zone within a given width and report width used
+      function placeZone(zoneCables, maxWidth, spacingEnabled) {
+        const { large: gLarge, small: gSmall } = splitLargeSmall(zoneCables);
         let largePlaced = [];
         if (gLarge.length > 0) {
           largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
@@ -833,9 +833,9 @@
         return { placed, widthUsed, barrierX, largeCount: gLarge.length, smallCount: gSmall.length };
       }
 
-      // (3) Place an entire cable group within a given width and report width used
-      function placeGroup(groupCables, maxWidth, spacingEnabled) {
-        const { large: gLarge, small: gSmall } = splitLargeSmall(groupCables);
+      // (3) Place an entire cable zone within a given width and report width used
+      function placeZone(zoneCables, maxWidth, spacingEnabled) {
+        const { large: gLarge, small: gSmall } = splitLargeSmall(zoneCables);
         let largePlaced = [];
         if (gLarge.length > 0) {
           largePlaced = placeLargeIgnoreBounds(gLarge, spacingEnabled);
@@ -876,7 +876,7 @@
           const voltVal     = parseFloat(row.children[5].querySelector("input").value);
           const odVal       = parseFloat(row.children[6].querySelector("input").value);
           const wtVal       = parseFloat(row.children[7].querySelector("input").value);
-          const groupVal    = parseInt(row.children[8].querySelector("input").value) || 1;
+          const zoneVal    = parseInt(row.children[8].querySelector("input").value) || 1;
           const multiVal   = countVal > 1;
 
           if (!tagVal) {
@@ -906,7 +906,7 @@
             OD: odVal,
             weight: wtVal,
             multi: multiVal,
-            group: groupVal
+            zone: zoneVal
           });
         }
         if (cables.length === 0) {
@@ -948,21 +948,21 @@
         // 5) Check if user wants one‐diameter spacing between 4/0+ cables
         const spacingEnabled = document.getElementById("largeSpacing").checked;
 
-        // 6) Place cables group by group
-        const groupIds = [...new Set(cables.map(c => c.group))].sort((a,b) => a - b);
+        // 6) Place cables zone by zone
+        const zoneIds = [...new Set(cables.map(c => c.zone))].sort((a,b) => a - b);
         let placedAll = [];
         let barrierLines = [];
         let offset = 0;
-        let groupHTML = "";
+        let zoneHTML = "";
         let voltageWarning = "";
 
-        // First pass: determine natural width of each group
-        const groupInfo = [];
+        // First pass: determine natural width of each zone
+        const zoneInfo = [];
         let totalWidthNeeded = 0;
-        groupIds.forEach(gid => {
-          const gCables = cables.filter(c => c.group === gid);
-          const measure = placeGroup(gCables, trayW, spacingEnabled);
-          groupInfo.push({ gid, cables: gCables, width: measure.widthUsed });
+        zoneIds.forEach(zid => {
+          const gCables = cables.filter(c => c.zone === zid);
+          const measure = placeZone(gCables, trayW, spacingEnabled);
+          zoneInfo.push({ zid, cables: gCables, width: measure.widthUsed });
           totalWidthNeeded += measure.widthUsed;
 
           const volts   = gCables.map(c => c.voltage).filter(v => !isNaN(v));
@@ -973,7 +973,7 @@
             if (maxV > minR + 1e-6) {
               voltageWarning += `
                 <p class="warning">
-                  WARNING: In Group ${gid}, operating voltage (${maxV.toFixed(0)} V) exceeds the lowest cable rating (${minR.toFixed(0)} V).
+                  WARNING: In Zone ${zid}, operating voltage (${maxV.toFixed(0)} V) exceeds the lowest cable rating (${minR.toFixed(0)} V).
                 </p>`;
             }
           }
@@ -987,19 +987,19 @@
 
         let scaleFactor = totalWidthNeeded > trayW ? trayW / totalWidthNeeded : 1;
 
-        // Helper to place all groups using a given scale factor
-        function layoutGroups(scale) {
+        // Helper to place all zones using a given scale factor
+        function layoutZones(scale) {
           let off = 0;
           let html = "";
           const lines = [];
           const placed = [];
-          groupInfo.forEach(info => {
+          zoneInfo.forEach(info => {
             const widthLimit = info.width * scale;
-            const result = placeGroup(info.cables, widthLimit, spacingEnabled);
+            const result = placeZone(info.cables, widthLimit, spacingEnabled);
             const widthUsed = result.widthUsed;
             const areaAll = sumAreas(info.cables);
             const fillP = widthUsed > 0 ? Math.min(100, (areaAll / (widthUsed * trayD)) * 100) : 0;
-            html += `<p><strong>Group ${info.gid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
+            html += `<p><strong>Zone ${info.zid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
             if (off > 0) lines.push(off);
             if (result.largeCount > 0 && result.smallCount > 0) lines.push(off + result.barrierX);
             result.placed.forEach(p => { p.x += off; placed.push(p); });
@@ -1009,16 +1009,16 @@
         }
 
         // Try packing with iterative scaling until width fits within the tray
-        let layout = layoutGroups(scaleFactor);
+        let layout = layoutZones(scaleFactor);
         for (let i = 0; i < 8 && layout.width > trayW + 1e-6; i++) {
           scaleFactor *= trayW / layout.width;
-          layout = layoutGroups(scaleFactor);
+          layout = layoutZones(scaleFactor);
         }
 
         placedAll    = layout.placed;
         barrierLines = layout.lines;
         offset       = layout.width;
-        groupHTML    = layout.html;
+        zoneHTML    = layout.html;
 
         // If combined width exceeds tray width, simply report overflow.
         // Previously the code scaled x positions to "squish" the layout, but
@@ -1080,7 +1080,7 @@
             <strong>Stackable Cables Cross-Sectional Area:</strong>
             ${sumSmallArea.toFixed(2)} in²
           </p>
-          ${groupHTML}
+          ${zoneHTML}
           <p>
             <strong>Non-Stackable Cables Sum of Diameters:</strong>
             ${sumLargeDiam.toFixed(2)} in
@@ -1505,7 +1505,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           "Operating Voltage (V)",
           "OD",
           "Weight",
-          "Group"
+          "Zone"
         ]];
         rows.forEach(row => {
           const tag       = row.children[0].querySelector("input").value.trim();
@@ -1516,8 +1516,8 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           const voltage   = row.children[5].querySelector("input").value.trim();
           const od        = row.children[6].querySelector("input").value.trim();
           const weight    = row.children[7].querySelector("input").value.trim();
-          const group     = row.children[8].querySelector("input").value.trim();
-          data.push([tag, cableType, count, size, rating, voltage, od, weight, group]);
+          const zone     = row.children[8].querySelector("input").value.trim();
+          data.push([tag, cableType, count, size, rating, voltage, od, weight, zone]);
         });
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1544,7 +1544,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             alert("Excel sheet is empty.");
             return;
           }
-          // Expect columns: Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, Group
+          // Expect columns: Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, Zone
           cableTbody.innerHTML = "";
           jsonArr.forEach((obj, idx) => {
             const {
@@ -1556,7 +1556,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
               "Operating Voltage (V)": Voltage,
               OD,
               Weight,
-              Group
+              Zone
             } = obj;
             if (
               typeof Tag === "undefined" ||
@@ -1586,14 +1586,14 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             // If not matched a default, fill custom OD/Weight
             const odInput = newRow.children[6].querySelector("input");
             const wtInput = newRow.children[7].querySelector("input");
-            const grpInput = newRow.children[8].querySelector("input");
+            const zoneInput = newRow.children[8].querySelector("input");
             if (cableOptions.findIndex(o => o.conductors === parseInt(Conductors) && o.size === Size) < 0) {
               odInput.value = parseFloat(OD).toFixed(2);
               wtInput.value = parseFloat(Weight).toFixed(2);
               odInput.readOnly = false;
               wtInput.readOnly = false;
             }
-            grpInput.value = Group || 1;
+            zoneInput.value = Zone || 1;
             cableTbody.appendChild(newRow);
           });
           alert("Excel imported. Correct any unrecognized conductor details if needed.");
@@ -1607,7 +1607,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         alert(
           "Import Instructions:\n" +
           "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
+          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Zone.\n" +
           "3. Save the file then choose it with 'Import Excel'."
         );
       });
@@ -1656,7 +1656,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           const voltVal    = parseFloat(row.children[5].querySelector("input").value);
           const odVal      = parseFloat(row.children[6].querySelector("input").value);
           const wtVal      = parseFloat(row.children[7].querySelector("input").value);
-          const groupVal   = parseInt(row.children[8].querySelector("input").value) || 1;
+          const zoneVal   = parseInt(row.children[8].querySelector("input").value) || 1;
           const multiVal  = countVal > 1;
           if (!tagVal || !cableType || !countVal || !sizeVal || isNaN(odVal) || isNaN(wtVal)) {
             alert("All rows must have Tag, Cable Type, conductor count/size, OD, and Weight before saving.");
@@ -1672,7 +1672,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             OD: odVal,
             weight: wtVal,
             multi: multiVal,
-            group: groupVal
+            zone: zoneVal
           });
         }
         try {
@@ -1717,14 +1717,14 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           sizeInput.dispatchEvent(new Event("input"));
           const odInput = newRow.children[6].querySelector("input");
           const wtInput = newRow.children[7].querySelector("input");
-          const grpInput = newRow.children[8].querySelector("input");
+          const zoneInput = newRow.children[8].querySelector("input");
           if (cableOptions.findIndex(o => o.conductors === cable.count && o.size === cable.size) < 0) {
             odInput.value = cable.OD.toFixed(2);
             wtInput.value = cable.weight.toFixed(2);
             odInput.readOnly = false;
             wtInput.readOnly = false;
           }
-          grpInput.value = cable.group || 1;
+          zoneInput.value = cable.zone || 1;
           cableTbody.appendChild(newRow);
         });
         alert(`Profile "${profileName}" loaded.`);

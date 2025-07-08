@@ -1452,51 +1452,92 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           />
         `;
 
-        // (D) Draw each circle + inline text inside
+        // (D) Draw each circle
         lastPlaced.forEach(p => {
-          const cx = p.x * bigScale;
-          const cy = trayTopY + ((trayD - p.y) * bigScale);
-          const r  = p.r * bigScale;
-          svg += `
-            <circle
-              cx="${cx.toFixed(2)}"
-              cy="${cy.toFixed(2)}"
-              r="${r.toFixed(2)}"
-              fill="#66ccff"
-              stroke="#0066aa"
-              stroke-width="2"
-            />
-          `;
-
-          // Insert multiline <text> inside each circle
-          const fontSize = Math.min(r * 0.15, 20);
-          const lines = [
-            `${p.tag}`,
-            `${p.cableType}`,
-            `${p.count}C ${p.size}`,
-            `OD: ${p.OD.toFixed(2)}″`,
-            `Wt: ${p.weight.toFixed(2)}`
-          ];
-          const lineHeight = fontSize * 1.1;
-          const textBlockHeight = lines.length * lineHeight;
-          let yStart = cy - textBlockHeight / 2 + lineHeight / 2;
-
-          lines.forEach((ln, idx) => {
+          if (p.isGroup && p.members && p.offsets) {
+            const gcx = p.x * bigScale;
+            const gcy = trayTopY + ((trayD - p.y) * bigScale);
+            const gr  = p.r * bigScale;
             svg += `
-              <text
-                x="${cx.toFixed(2)}"
-                y="${(yStart + idx * lineHeight).toFixed(2)}"
-                font-size="${fontSize}px"
-                text-anchor="middle"
-                fill="#000"
-                stroke="none"
-                font-family="Arial, sans-serif"
-                pointer-events="none"
-              >
-                ${ln}
-              </text>
+              <circle
+                cx="${gcx.toFixed(2)}"
+                cy="${gcy.toFixed(2)}"
+                r="${gr.toFixed(2)}"
+                fill="none"
+                stroke="#0066aa"
+                stroke-width="2"
+                stroke-dasharray="8 4"
+              />
             `;
-          });
+            p.members.forEach((m, idx) => {
+              const mx = (p.x + p.offsets[idx].x) * bigScale;
+              const my = trayTopY + ((trayD - (p.y + p.offsets[idx].y)) * bigScale);
+              const mr = (m.OD / 2) * bigScale;
+              svg += `
+                <circle
+                  cx="${mx.toFixed(2)}"
+                  cy="${my.toFixed(2)}"
+                  r="${mr.toFixed(2)}"
+                  fill="#66ccff"
+                  stroke="#0066aa"
+                  stroke-width="2"
+                >
+                  <title>
+Cable Tag: ${m.tag}
+Cable Type: ${m.cableType}
+Conductors: ${m.count}
+Size: ${m.size}
+OD: ${m.OD.toFixed(2)}″
+Wt: ${m.weight.toFixed(2)} lbs/ft
+                  </title>
+                </circle>
+              `;
+            });
+          } else {
+            const cx = p.x * bigScale;
+            const cy = trayTopY + ((trayD - p.y) * bigScale);
+            const r  = p.r * bigScale;
+            svg += `
+              <circle
+                cx="${cx.toFixed(2)}"
+                cy="${cy.toFixed(2)}"
+                r="${r.toFixed(2)}"
+                fill="#66ccff"
+                stroke="#0066aa"
+                stroke-width="2"
+              />
+            `;
+
+            // Insert multiline <text> inside each circle
+            const fontSize = Math.min(r * 0.15, 20);
+            const lines = [
+              `${p.tag}`,
+              `${p.cableType}`,
+              `${p.count}C ${p.size}`,
+              `OD: ${p.OD.toFixed(2)}″`,
+              `Wt: ${p.weight.toFixed(2)}`
+            ];
+            const lineHeight = fontSize * 1.1;
+            const textBlockHeight = lines.length * lineHeight;
+            let yStart = cy - textBlockHeight / 2 + lineHeight / 2;
+
+            lines.forEach((ln, idx) => {
+              svg += `
+                <text
+                  x="${cx.toFixed(2)}"
+                  y="${(yStart + idx * lineHeight).toFixed(2)}"
+                  font-size="${fontSize}px"
+                  text-anchor="middle"
+                  fill="#000"
+                  stroke="none"
+                  font-family="Arial, sans-serif"
+                  pointer-events="none"
+                >
+                  ${ln}
+                </text>
+              `;
+            });
+          }
         });
 
         svg += `</svg>`;

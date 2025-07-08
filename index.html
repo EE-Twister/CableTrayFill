@@ -357,6 +357,7 @@
       let lastTrayD   = 0;     // in inches
       let lastType    = "";    // “ladder” or “solid”
       let lastScale   = 20;    // px/in for small view
+      let lastZones   = [];    // array of zone ids in order
 
       // Reference to <tbody> in the cable table
       const cableTbody = document.querySelector("#cableTable tbody");
@@ -1192,6 +1193,7 @@
         lastTrayD    = trayD;
         lastType     = trayType;
         lastScale    = 20;  // px/in for small view
+        lastZones    = zoneIds.slice();
 
         // 14) Detect overflow horizontally/vertically
         let overflowHoriz = false;
@@ -1255,10 +1257,12 @@
           const xe = zoneBounds[i+1] * scale;
           const mid = (xs + xe) / 2;
           const wText = (zoneBounds[i+1] - zoneBounds[i]).toFixed(1) + '"';
+          const zoneText = `Zone ${zoneIds[i]}`;
           svg += `
             <line x1="${xs.toFixed(2)}" y1="${dimLineY}" x2="${xe.toFixed(2)}" y2="${dimLineY}" stroke="#000" stroke-width="1" />
             <line x1="${xs.toFixed(2)}" y1="${dimLineY-4}" x2="${xs.toFixed(2)}" y2="${dimLineY+4}" stroke="#000" stroke-width="1" />
             <line x1="${xe.toFixed(2)}" y1="${dimLineY-4}" x2="${xe.toFixed(2)}" y2="${dimLineY+4}" stroke="#000" stroke-width="1" />
+            <text x="${mid.toFixed(2)}" y="${dimLineY-6}" font-size="10px" text-anchor="middle" font-family="Arial, sans-serif">${zoneText}</text>
             <text x="${mid.toFixed(2)}" y="${dimLineY+10}" font-size="10px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
           `;
         }
@@ -1444,10 +1448,12 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           const xe = bigZone[i+1] * bigScale;
           const mid = (xs + xe) / 2;
           const wText = (bigZone[i+1] - bigZone[i]).toFixed(1) + '"';
+          const zoneText = `Zone ${lastZones[i]}`;
           svg += `
             <line x1="${xs.toFixed(2)}" y1="${dimLineY}" x2="${xe.toFixed(2)}" y2="${dimLineY}" stroke="#000" stroke-width="2" />
             <line x1="${xs.toFixed(2)}" y1="${dimLineY-8}" x2="${xs.toFixed(2)}" y2="${dimLineY+8}" stroke="#000" stroke-width="2" />
             <line x1="${xe.toFixed(2)}" y1="${dimLineY-8}" x2="${xe.toFixed(2)}" y2="${dimLineY+8}" stroke="#000" stroke-width="2" />
+            <text x="${mid.toFixed(2)}" y="${dimLineY-12}" font-size="18px" text-anchor="middle" font-family="Arial, sans-serif">${zoneText}</text>
             <text x="${mid.toFixed(2)}" y="${dimLineY+16}" font-size="18px" text-anchor="middle" font-family="Arial, sans-serif">${wText}</text>
           `;
         }

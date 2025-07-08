@@ -84,6 +84,18 @@
     .duplicateBtn:hover {
       background-color: #7f8c8d;
     }
+    .helpBtn {
+      background: none;
+      border: none;
+      color: #3498db;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-left: 4px;
+      padding: 0 2px;
+    }
+    .helpBtn:hover {
+      text-decoration: underline;
+    }
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -232,15 +244,15 @@
     <table id="cableTable">
       <thead>
         <tr>
-          <th>Tag</th>
-          <th>Cable Type</th>
-          <th>Conductors</th>
-          <th>Conductor Size</th>
-          <th>Cable Rating (V)</th>
-          <th>Operating Voltage (V)</th>
-          <th>OD (in)</th>
-          <th>Weight (lbs/ft)</th>
-          <th>Cable Group</th>
+          <th>Tag <button class="helpBtn" data-help="Unique identifier or label for the cable.">?</button></th>
+          <th>Cable Type <button class="helpBtn" data-help="Classify as Power, Control, or Signal.">?</button></th>
+          <th>Conductors <button class="helpBtn" data-help="Number of conductors in the cable.">?</button></th>
+          <th>Conductor Size <button class="helpBtn" data-help="Gauge or size of each conductor.">?</button></th>
+          <th>Cable Rating (V) <button class="helpBtn" data-help="Voltage rating of the cable insulation.">?</button></th>
+          <th>Operating Voltage (V) <button class="helpBtn" data-help="Actual working voltage on the cable.">?</button></th>
+          <th>OD (in) <button class="helpBtn" data-help="Outer diameter of the cable in inches.">?</button></th>
+          <th>Weight (lbs/ft) <button class="helpBtn" data-help="Cable weight per foot.">?</button></th>
+          <th>Cable Group <button class="helpBtn" data-help="Numeric group for organizing cables.">?</button></th>
           <th>Duplicate</th>
           <th>Remove</th>
         </tr>
@@ -1579,37 +1591,6 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
         );
       });
 
-      // (L2) Import Help button
-      document.getElementById("importHelpBtn").addEventListener("click", () => {
-        alert(
-          "Import Instructions:\n" +
-          "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
-          "3. Save the file then choose it with 'Import Excel'."
-        );
-      });
-
-      // (L2) Import Help button
-      document.getElementById("importHelpBtn").addEventListener("click", () => {
-        alert(
-          "Import Instructions:\n" +
-          "1. Click 'Export Excel' to download a template.\n" +
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
-          "3. Save the file then choose it with 'Import Excel'."
-        );
-      });
-
-      // (L2) Import Help button
-      document.getElementById("importHelpBtn").addEventListener("click", () => {
-        alert(
-          "Import Instructions:\n" +
-          "1. Click 'Export Excel' to download a template.\n" +
-
-          "2. Fill in Tag, Cable Type, Conductors, Conductor Size, Cable Rating (V), Operating Voltage (V), OD, Weight, and Group.\n" +
-
-          "3. Save the file then choose it with 'Import Excel'."
-        );
-      });
 
       // ─────────────────────────────────────────────────────────────
       // (M) Profile Management (localStorage)
@@ -1743,6 +1724,13 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
 
       // Initialize profile dropdown
       refreshProfileList();
+
+      // Attach help popups for table headers
+      document.querySelectorAll('.helpBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          alert(btn.getAttribute('data-help'));
+        });
+      });
     });
   </script>
 </body>

@@ -940,6 +940,7 @@
         let barrierLines = [];
         let offset = 0;
         let groupHTML = "";
+        let voltageWarning = "";
 
         // First pass: determine natural width of each group
         const groupInfo = [];
@@ -949,6 +950,19 @@
           const measure = placeGroup(gCables, trayW, spacingEnabled);
           groupInfo.push({ gid, cables: gCables, width: measure.widthUsed });
           totalWidthNeeded += measure.widthUsed;
+
+          const volts   = gCables.map(c => c.voltage).filter(v => !isNaN(v));
+          const ratings = gCables.map(c => c.rating).filter(v => !isNaN(v));
+          if (volts.length > 0 && ratings.length > 0) {
+            const maxV = Math.max(...volts);
+            const minR = Math.min(...ratings);
+            if (maxV > minR + 1e-6) {
+              voltageWarning += `
+                <p class="warning">
+                  WARNING: In Group ${gid}, operating voltage (${maxV.toFixed(0)} V) exceeds the lowest cable rating (${minR.toFixed(0)} V).
+                </p>`;
+            }
+          }
         });
 
         // Adjust recommended width based on actual layout requirement
@@ -1064,6 +1078,7 @@
         ${nfpaWarning}
         ${csWarning}
         ${singleWarning}
+        ${voltageWarning}
       `;
 
         // Store for “Expand Image”

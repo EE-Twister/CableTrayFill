@@ -469,7 +469,7 @@
         inpGroup.step = "1";
         inpGroup.min = "1";
         inpGroup.style.width = "50px";
-        inpGroup.value = "1";
+        inpGroup.value = "";
         tdGroup.appendChild(inpGroup);
         tr.appendChild(tdGroup);
 
@@ -651,7 +651,7 @@
       // ─────────────────────────────────────────────────────────────
 
       // (1) Bottom‐row placement for large cables (y = r), ignoring tray width,
-      //     but if spacingEnabled, add one‐diameter gap equal to the larger of the two radii.
+      //     but if spacingEnabled, add a gap based on each item’s spacingGap property.
       function placeLargeIgnoreBounds(largeCables, spacingEnabled) {
         // --- SORT largeCables BY DESCENDING OD (largest → smallest) ---
         const sortedLarge = largeCables.slice().sort((a, b) => b.OD - a.OD);
@@ -666,26 +666,21 @@
           } else {
             const prev = placed[i - 1];
             if (spacingEnabled) {
-              // Use the larger radius of (prev.r, r):
-              const largerRadius = Math.max(prev.r, r);
-              const gap = 2 * largerRadius; // one full diameter of the larger cable
+              const prevGap = prev.spacingGap || (2 * prev.r);
+              const currGap = c.spacingGap || (2 * r);
+              const gap = Math.max(prevGap, currGap);
               xCenter = prev.x + prev.r + gap + r;
             } else {
               // No extra spacing: edge‐to‐edge
               xCenter = prev.x + prev.r + r;
             }
           }
-          placed.push({
+          const placedObj = Object.assign({}, c, {
             x: xCenter,
             y: r,
-            r: r,
-            OD: c.OD,
-            tag: c.tag,
-            cableType: c.cableType,
-            count: c.count,
-            size: c.size,
-            weight: c.weight
+            r: r
           });
+          placed.push(placedObj);
         });
         return placed;
       }
@@ -892,7 +887,8 @@
           const odVal       = parseFloat(row.children[6].querySelector("input").value);
           const wtVal       = parseFloat(row.children[7].querySelector("input").value);
           const zoneVal     = parseInt(row.children[8].querySelector("input").value) || 1;
-          const groupVal    = parseInt(row.children[9].querySelector("input").value) || 1;
+          const groupRaw    = row.children[9].querySelector("input").value;
+          const groupVal    = groupRaw ? parseInt(groupRaw) : null;
           const multiVal   = countVal > 1;
 
           if (!tagVal) {
@@ -931,7 +927,69 @@
           return;
         }
 
-        // 3) Compute extra metrics: small‐area & large‐diameter sums
+        // 3) Convert circuit groups into placement groups
+        let groupWarning = "";
+        const groupsMap = {};
+        cables.forEach((c, idx) => {
+          if (c.circuitGroup !== null && c.circuitGroup !== undefined && c.circuitGroup !== "") {
+            const key = `${c.zone}_${c.circuitGroup}`;
+            if (!groupsMap[key]) groupsMap[key] = [];
+            groupsMap[key].push({ idx, cable: c });
+          }
+        });
+        const placementCables = [];
+        const groupedIdx = new Set();
+        Object.entries(groupsMap).forEach(([key, arr]) => {
+          const [zoneId, gId] = key.split('_').map(n => parseInt(n));
+          const members = arr.map(x => x.cable);
+          const valid =
+            (arr.length === 3 || arr.length === 4) &&
+            members.every(m => m.cableType === 'Power' && m.count === 1 && !m.multi);
+          if (!valid) {
+            groupWarning += `<p class="warning">Circuit Group ${gId} in Zone ${zoneId} must contain 3 or 4 single-conductor power cables.</p>`;
+            arr.forEach(x => { placementCables.push(x.cable); groupedIdx.add(x.idx); });
+          } else {
+            arr.forEach(x => groupedIdx.add(x.idx));
+            const maxOD = Math.max(...members.map(m => m.OD));
+            const weight = members.reduce((sum, m) => sum + m.weight, 0);
+            const rMax = maxOD / 2;
+            const factor = (members.length === 3) ? (1 + 2/Math.sqrt(3)) : (Math.SQRT2 + 1);
+            const groupOD = 2 * rMax * factor;
+            const offsets = [];
+            if (members.length === 3) {
+              offsets.push({x:-rMax, y:-rMax/Math.sqrt(3)});
+              offsets.push({x: rMax, y:-rMax/Math.sqrt(3)});
+              offsets.push({x:0, y:(2/Math.sqrt(3))*rMax});
+            } else {
+              offsets.push({x:-rMax, y:-rMax});
+              offsets.push({x: rMax, y:-rMax});
+              offsets.push({x:-rMax, y: rMax});
+              offsets.push({x: rMax, y: rMax});
+            }
+            placementCables.push({
+              tag: members.map(m=>m.tag).join('+'),
+              cableType: 'Power',
+              count: members.length,
+              size: members.map(m=>m.size).join('+'),
+              rating: NaN,
+              voltage: NaN,
+              OD: groupOD,
+              weight: weight,
+              multi: false,
+              zone: zoneId,
+              circuitGroup: gId,
+              isGroup: true,
+              members: members,
+              offsets: offsets,
+              spacingGap: 2.15 * maxOD
+            });
+          }
+        });
+        cables.forEach((c, idx) => {
+          if (!groupedIdx.has(idx)) placementCables.push(c);
+        });
+
+        // 4) Compute extra metrics: small‐area & large‐diameter sums
         const { large, small } = splitLargeSmall(cables);
         let sumSmallArea = sumAreas(small);
         let sumLargeDiam = sumDiameters(large);
@@ -966,7 +1024,7 @@
         const spacingEnabled = document.getElementById("largeSpacing").checked;
 
         // 6) Place cables zone by zone
-        const zoneIds = [...new Set(cables.map(c => c.zone))].sort((a,b) => a - b);
+        const zoneIds = [...new Set(placementCables.map(c => c.zone))].sort((a,b) => a - b);
         let placedAll = [];
         let barrierLines = [];
         let offset = 0;
@@ -977,13 +1035,14 @@
         const zoneInfo = [];
         let totalWidthNeeded = 0;
         zoneIds.forEach(zid => {
-          const gCables = cables.filter(c => c.zone === zid);
+          const gCables = placementCables.filter(c => c.zone === zid);
           const measure = placeZone(gCables, trayW, spacingEnabled);
-          zoneInfo.push({ zid, cables: gCables, width: measure.widthUsed });
+          zoneInfo.push({ zid, cables: gCables, orig: origCables, width: measure.widthUsed });
           totalWidthNeeded += measure.widthUsed;
 
-          const volts   = gCables.map(c => c.voltage).filter(v => !isNaN(v));
-          const ratings = gCables.map(c => c.rating).filter(v => !isNaN(v));
+          const origCables = cables.filter(c => c.zone === zid);
+          const volts   = origCables.map(c => c.voltage).filter(v => !isNaN(v));
+          const ratings = origCables.map(c => c.rating).filter(v => !isNaN(v));
           if (volts.length > 0 && ratings.length > 0) {
             const maxV = Math.max(...volts);
             const minR = Math.min(...ratings);
@@ -1014,7 +1073,7 @@
             const widthLimit = info.width * scale;
             const result = placeZone(info.cables, widthLimit, spacingEnabled);
             const widthUsed = result.widthUsed;
-            const areaAll = sumAreas(info.cables);
+            const areaAll = sumAreas(info.orig);
             const fillP = widthUsed > 0 ? Math.min(100, (areaAll / (widthUsed * trayD)) * 100) : 0;
             html += `<p><strong>Zone ${info.zid} Fill %:</strong> ${fillP.toFixed(0)} %</p>`;
             if (off > 0) lines.push(off);
@@ -1109,6 +1168,7 @@
         ${nfpaWarning}
         ${csWarning}
         ${singleWarning}
+        ${groupWarning}
         ${voltageWarning}
       `;
 
@@ -1204,28 +1264,55 @@
 
         // (E) Draw each circle (all shifted down by trayTopY, and Y‐flipped inside the tray)
         placedAll.forEach(p => {
-          const cx = p.x * scale;
-          const cy = trayTopY + ((trayD - p.y) * scale);
-          const r  = p.r * scale;
-          svg += `
-            <circle
-              cx="${cx.toFixed(2)}"
-              cy="${cy.toFixed(2)}"
-              r="${r.toFixed(2)}"
-              fill="#66ccff"
-              stroke="#0066aa"
-              stroke-width="1"
-            >
-              <title>
+          if (p.isGroup && p.members && p.offsets) {
+            p.members.forEach((m, idx) => {
+              const mx = (p.x + p.offsets[idx].x) * scale;
+              const my = trayTopY + ((trayD - (p.y + p.offsets[idx].y)) * scale);
+              const mr = (m.OD / 2) * scale;
+              svg += `
+                <circle
+                  cx="${mx.toFixed(2)}"
+                  cy="${my.toFixed(2)}"
+                  r="${mr.toFixed(2)}"
+                  fill="#66ccff"
+                  stroke="#0066aa"
+                  stroke-width="1"
+                >
+                  <title>
+Cable Tag: ${m.tag}
+Cable Type: ${m.cableType}
+Conductors: ${m.count}
+Size: ${m.size}
+OD: ${m.OD.toFixed(2)}″
+Wt: ${m.weight.toFixed(2)} lbs/ft
+                  </title>
+                </circle>
+              `;
+            });
+          } else {
+            const cx = p.x * scale;
+            const cy = trayTopY + ((trayD - p.y) * scale);
+            const r  = p.r * scale;
+            svg += `
+              <circle
+                cx="${cx.toFixed(2)}"
+                cy="${cy.toFixed(2)}"
+                r="${r.toFixed(2)}"
+                fill="#66ccff"
+                stroke="#0066aa"
+                stroke-width="1"
+              >
+                <title>
 Cable Tag: ${p.tag}
 Cable Type: ${p.cableType}
 Conductors: ${p.count}
 Size: ${p.size}
 OD: ${p.OD.toFixed(2)}″
 Wt: ${p.weight.toFixed(2)} lbs/ft
-              </title>
-            </circle>
-          `;
+                </title>
+              </circle>
+            `;
+          }
         });
 
         svg += `</svg>`;
@@ -1615,7 +1702,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
               wtInput.readOnly = false;
             }
             zoneInput.value = Zone || 1;
-            groupInput.value = obj["Circuit Group"] || 1;
+            groupInput.value = obj["Circuit Group"] || "";
             cableTbody.appendChild(newRow);
           });
           alert("Excel imported. Correct any unrecognized conductor details if needed.");
@@ -1679,7 +1766,8 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
           const odVal      = parseFloat(row.children[6].querySelector("input").value);
           const wtVal      = parseFloat(row.children[7].querySelector("input").value);
           const zoneVal    = parseInt(row.children[8].querySelector("input").value) || 1;
-          const groupVal   = parseInt(row.children[9].querySelector("input").value) || 1;
+          const groupRaw   = row.children[9].querySelector("input").value;
+          const groupVal   = groupRaw ? parseInt(groupRaw) : null;
           const multiVal  = countVal > 1;
           if (!tagVal || !cableType || !countVal || !sizeVal || isNaN(odVal) || isNaN(wtVal)) {
             alert("All rows must have Tag, Cable Type, conductor count/size, OD, and Weight before saving.");
@@ -1750,7 +1838,7 @@ Wt: ${p.weight.toFixed(2)} lbs/ft
             wtInput.readOnly = false;
           }
           zoneInput.value = cable.zone || 1;
-          groupInput.value = cable.circuitGroup || 1;
+          groupInput.value = cable.circuitGroup || "";
           cableTbody.appendChild(newRow);
         });
         alert(`Profile "${profileName}" loaded.`);

@@ -1492,6 +1492,35 @@ Wt: ${m.weight.toFixed(2)} lbs/ft
                   </title>
                 </circle>
               `;
+
+              const fontSize = Math.min(mr * 0.15, 20);
+              const lines = [
+                `${m.tag}`,
+                `${m.cableType}`,
+                `${m.count}C ${m.size}`,
+                `OD: ${m.OD.toFixed(2)}″`,
+                `Wt: ${m.weight.toFixed(2)}`
+              ];
+              const lineHeight = fontSize * 1.1;
+              const textBlockHeight = lines.length * lineHeight;
+              let yStart = my - textBlockHeight / 2 + lineHeight / 2;
+
+              lines.forEach((ln, idx2) => {
+                svg += `
+                  <text
+                    x="${mx.toFixed(2)}"
+                    y="${(yStart + idx2 * lineHeight).toFixed(2)}"
+                    font-size="${fontSize}px"
+                    text-anchor="middle"
+                    fill="#000"
+                    stroke="none"
+                    font-family="Arial, sans-serif"
+                    pointer-events="none"
+                  >
+                    ${ln}
+                  </text>
+                `;
+              });
             });
           } else {
             const cx = p.x * bigScale;

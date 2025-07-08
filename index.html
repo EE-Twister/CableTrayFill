@@ -901,17 +901,10 @@
         }
 
         // 3) Compute extra metrics: small‐area & large‐diameter sums
-        let sumSmallArea = 0;
-        let sumLargeDiam = 0;
-        const singleCables = [];
-        cables.forEach(c => {
-          if (c.OD < 1.55) {
-            sumSmallArea += Math.PI * (c.OD/2)**2;
-          } else {
-            sumLargeDiam += c.OD;
-          }
-          if (!c.multi) singleCables.push(c);
-        });
+        const { large, small } = splitLargeSmall(cables);
+        let sumSmallArea = sumAreas(small);
+        let sumLargeDiam = sumDiameters(large);
+        const singleCables = cables.filter(c => !c.multi);
 
         let singleWarning = "";
         if (singleCables.length > 0) {
@@ -935,8 +928,7 @@
           }
         }
 
-        // 4) Split large vs. small, compute recommended width
-        const { large, small } = splitLargeSmall(cables);
+        // 4) Use the large/small split to compute recommended width
         let recommendedWidth = computeNeededWidth(large, small, trayType);
 
         // 5) Check if user wants one‐diameter spacing between 4/0+ cables

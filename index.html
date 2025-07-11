@@ -96,6 +96,9 @@
     .helpBtn:hover {
       text-decoration: underline;
     }
+    .required { color: red; }
+    #cableTableWrapper { max-height: 250px; overflow-y: auto; }
+    #cableTable thead th { position: sticky; top: 0; background: #f0f0f0; z-index: 1; }
     #profileControls {
       margin-top: 16px;
       border: 1px solid #bbb;
@@ -305,17 +308,18 @@
   <fieldset>
     <legend><strong>Enter Cables</strong></legend>
     <button id="addCableBtn" type="button">Add Cable</button>
+    <div id="cableTableWrapper">
     <table id="cableTable">
       <thead>
         <tr>
-          <th>Tag <button class="helpBtn" data-help="Unique identifier or label for the cable.">?</button></th>
-          <th>Cable Type <button class="helpBtn" data-help="Classify as Power, Control, or Signal.">?</button></th>
-          <th>Conductors <button class="helpBtn" data-help="Number of conductors in the cable.">?</button></th>
-          <th>Conductor Size <button class="helpBtn" data-help="Gauge or size of each conductor.">?</button></th>
+          <th>Tag <span class="required">*</span> <button class="helpBtn" data-help="Unique identifier or label for the cable.">?</button></th>
+          <th>Cable Type <span class="required">*</span> <button class="helpBtn" data-help="Classify as Power, Control, or Signal.">?</button></th>
+          <th>Conductors <span class="required">*</span> <button class="helpBtn" data-help="Number of conductors in the cable.">?</button></th>
+          <th>Conductor Size <span class="required">*</span> <button class="helpBtn" data-help="Gauge or size of each conductor.">?</button></th>
           <th>Cable Rating (V) <button class="helpBtn" data-help="Voltage rating of the cable insulation.">?</button></th>
           <th>Operating Voltage (V) <button class="helpBtn" data-help="Actual working voltage on the cable.">?</button></th>
-          <th>OD (in) <button class="helpBtn" data-help="Outer diameter of the cable in inches.">?</button></th>
-          <th>Weight (lbs/ft) <button class="helpBtn" data-help="Cable weight per foot.">?</button></th>
+          <th>OD (in) <span class="required">*</span> <button class="helpBtn" data-help="Outer diameter of the cable in inches.">?</button></th>
+          <th>Weight (lbs/ft) <span class="required">*</span> <button class="helpBtn" data-help="Cable weight per foot.">?</button></th>
           <th>Cable Zone <button class="helpBtn" data-help="Numeric zone for organizing cables. If Stackable and Non-Stackable Cables are placed in the same zone then a divider will automatically be added.">?</button></th>
           <th>Circuit Group <button class="helpBtn" data-help="Numeric group for bundling single conductor cables in groups of 3 or 4 conductors.">?</button></th>
           <th>Duplicate</th>
@@ -326,6 +330,7 @@
         <!-- rows inserted here by script -->
       </tbody>
     </table>
+    </div>
     <p style="font-size:0.85rem; color:#555; margin-top:8px;">
       <strong>Conductors/Size:</strong> Enter the number of conductors and conductor size or pick one of the defaults.<br>
       OD & Weight auto-fill if you select a default.

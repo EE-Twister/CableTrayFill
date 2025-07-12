@@ -422,12 +422,15 @@
         { label: "3/C – 1000 kcmil", conductors: 3, size: "1000 kcmil", OD: 3.10, weight: 11.70 }
       ];
 
-      // Populate the <datalist> (#sizeList) with unique conductor sizes
+      // Populate the <datalist> (#sizeList) with conductor sizes in order
       const typeDatalist = document.getElementById("sizeList");
-      const uniqueSizes = [...new Set(cableOptions.map(o => o.size))];
-      ['#10 AWG', '#12 AWG', '#14 AWG', '#16 AWG', '#18 AWG', '#20 AWG', '#22 AWG']
-        .forEach(sz => { if (!uniqueSizes.includes(sz)) uniqueSizes.push(sz); });
-      uniqueSizes.forEach(sz => {
+      const orderedSizes = [
+        "#22 AWG", "#20 AWG", "#18 AWG", "#16 AWG", "#14 AWG", "#12 AWG",
+        "#10 AWG", "#8 AWG", "#6 AWG", "#4 AWG", "#2 AWG", "#1 AWG",
+        "1/0 AWG", "2/0 AWG", "3/0 AWG", "4/0 AWG", "250 kcmil",
+        "350 kcmil", "500 kcmil", "750 kcmil", "1000 kcmil"
+      ];
+      orderedSizes.forEach(sz => {
         const option = document.createElement("option");
         option.value = sz;
         typeDatalist.appendChild(option);
